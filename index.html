@@ -14,9 +14,6 @@
 <!-- Babel (JSX in this file) -->
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<!-- SheetJS (XLSX import/export) -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
 <style>
   :root { --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#9fb0d0; --line:#233458; --accent:#1b3bff; }
   body { margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
@@ -63,6 +60,7 @@
   .spinner { border: 3px solid var(--line); border-top: 3px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   .readonly-banner { background: #2a4a7c; padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; text-align: center; font-size: 13px; }
+  pre { background: #0d1730; padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 11px; }
 </style>
 ```
 
@@ -107,39 +105,81 @@
     );
   }
 
+  async function fetchSheetAsCSV(sheetName){
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    const response = await fetch(url);
+    if(!response.ok) throw new Error(`Failed to fetch ${sheetName}`);
+    const text = await response.text();
+    return parseCSV(text);
+  }
+
+  function parseCSV(text){
+    const lines = [];
+    let current = [];
+    let inQuote = false;
+    let field = '';
+
+    for(let i = 0; i < text.length; i++){
+      const char = text[i];
+      const next = text[i+1];
+
+      if(char === '"'){
+        if(inQuote && next === '"'){
+          field += '"';
+          i++;
+        } else {
+          inQuote = !inQuote;
+        }
+      } else if(char === ',' && !inQuote){
+        current.push(field);
+        field = '';
+      } else if((char === '\n' || char === '\r') && !inQuote){
+        if(field || current.length){
+          current.push(field);
+          lines.push(current);
+          current = [];
+          field = '';
+        }
+        if(char === '\r' && next === '\n') i++;
+      } else {
+        field += char;
+      }
+    }
+
+    if(field || current.length){
+      current.push(field);
+      lines.push(current);
+    }
+
+    return lines;
+  }
+
   async function fetchSheetData(){
     try {
-      // Fetch the entire spreadsheet as XLSX
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`;
-      const response = await fetch(url);
-      if(!response.ok) throw new Error("Failed to fetch sheet");
+      console.log("Fetching PICKS sheet...");
+      const picksData = await fetchSheetAsCSV("PICKS");
+      console.log("PICKS data:", picksData);
       
-      const arrayBuffer = await response.arrayBuffer();
-      const data = new Uint8Array(arrayBuffer);
-      const wb = XLSX.read(data, { type: "array" });
+      if(!picksData || picksData.length < 2){
+        throw new Error("PICKS sheet is empty or malformed");
+      }
 
-      // Parse PICKS sheet
-      const picksWS = wb.Sheets["PICKS"];
-      if(!picksWS) throw new Error("No PICKS sheet found");
-      
-      const picksAOA = XLSX.utils.sheet_to_json(picksWS, { header: 1 });
-      const picksHeader = picksAOA[0] || [];
-      const compIdx = picksHeader.indexOf("Competitor");
-      if(compIdx === -1) throw new Error("No Competitor column in PICKS");
+      const picksHeader = picksData[0];
+      const compIdx = picksHeader.findIndex(h => h.toLowerCase().includes('competitor'));
+      if(compIdx === -1) throw new Error("No Competitor column found in PICKS sheet");
 
-      // Find GW columns
       const maxGWs = 38;
       const gwCols = {};
       for(let gw=1; gw<=maxGWs; gw++){
-        const idx = picksHeader.indexOf(`GW${gw}`);
+        const idx = picksHeader.findIndex(h => h === `GW${gw}`);
         if(idx !== -1) gwCols[gw] = idx;
       }
 
       const competitors = [];
       const picks = {};
-      for(let r=1; r<picksAOA.length; r++){
-        const row = picksAOA[r];
-        const c = (row[compIdx] ?? "").toString().trim();
+      for(let r=1; r<picksData.length; r++){
+        const row = picksData[r];
+        const c = normaliseTeamName(row[compIdx]);
         if(!c) continue;
         competitors.push(c);
         picks[c] = {};
@@ -151,44 +191,56 @@
         }
       }
 
-      // Parse POINTS sheet (optional)
-      const pointsWS = wb.Sheets["POINTS"];
-      const points = {};
-      if(pointsWS){
-        const ptsAOA = XLSX.utils.sheet_to_json(pointsWS, { header: 1 });
-        const ptsHeader = ptsAOA[0] || [];
-        const compIdx2 = ptsHeader.indexOf("Competitor");
-        const gwCols2 = {};
-        for(let gw=1; gw<=maxGWs; gw++){
-          const idx = ptsHeader.indexOf(`GW${gw}`);
-          if(idx !== -1) gwCols2[gw] = idx;
-        }
-        for(let r=1; r<ptsAOA.length; r++){
-          const row = ptsAOA[r];
-          const c = (row[compIdx2] ?? "").toString().trim();
-          if(!c) continue;
-          points[c] = {};
+      // Fetch POINTS sheet
+      let points = {};
+      try {
+        console.log("Fetching POINTS sheet...");
+        const pointsData = await fetchSheetAsCSV("POINTS");
+        console.log("POINTS data:", pointsData);
+        
+        if(pointsData && pointsData.length > 1){
+          const ptsHeader = pointsData[0];
+          const compIdx2 = ptsHeader.findIndex(h => h.toLowerCase().includes('competitor'));
+          const gwCols2 = {};
           for(let gw=1; gw<=maxGWs; gw++){
-            const idx = gwCols2[gw];
-            if(idx === undefined) continue;
-            const v = toInt(row[idx]);
-            if(v) points[c][gw] = v;
+            const idx = ptsHeader.findIndex(h => h === `GW${gw}`);
+            if(idx !== -1) gwCols2[gw] = idx;
+          }
+          for(let r=1; r<pointsData.length; r++){
+            const row = pointsData[r];
+            const c = normaliseTeamName(row[compIdx2]);
+            if(!c) continue;
+            points[c] = {};
+            for(let gw=1; gw<=maxGWs; gw++){
+              const idx = gwCols2[gw];
+              if(idx === undefined) continue;
+              const v = toInt(row[idx]);
+              if(v) points[c][gw] = v;
+            }
           }
         }
+      } catch(e){
+        console.warn("Could not load POINTS sheet:", e);
       }
 
-      // Parse TEAMS sheet (optional)
-      const teamsWS = wb.Sheets["TEAMS"];
+      // Fetch TEAMS sheet
       let teams = [];
-      if(teamsWS){
-        const tAOA = XLSX.utils.sheet_to_json(teamsWS, { header: 1 });
-        for(let r=1; r<tAOA.length; r++){
-          const v = normaliseTeamName(tAOA[r]?.[0]);
-          if(v) teams.push(v);
+      try {
+        console.log("Fetching TEAMS sheet...");
+        const teamsData = await fetchSheetAsCSV("TEAMS");
+        console.log("TEAMS data:", teamsData);
+        
+        if(teamsData && teamsData.length > 1){
+          for(let r=1; r<teamsData.length; r++){
+            const v = normaliseTeamName(teamsData[r]?.[0]);
+            if(v) teams.push(v);
+          }
         }
+      } catch(e){
+        console.warn("Could not load TEAMS sheet:", e);
       }
 
-      // If no TEAMS sheet, derive from picks
+      // If no teams loaded, derive from picks
       if(!teams.length){
         const s = new Set();
         for(const c of competitors){
@@ -248,8 +300,20 @@
           <div className="card">
             <h2>Error Loading Data</h2>
             <p className="bad">{error}</p>
-            <p className="muted">Make sure the Google Sheet is published to web (File → Share → Publish to web)</p>
-            <button className="primary" onClick={loadData}>Retry</button>
+            <div className="muted" style={{marginTop: 12}}>
+              <p><strong>Steps to fix:</strong></p>
+              <ol>
+                <li>Open your Google Sheet</li>
+                <li>Make sure it has a sheet named <strong>PICKS</strong></li>
+                <li>The PICKS sheet must have a <strong>Competitor</strong> column and <strong>GW1, GW2, GW3...</strong> columns</li>
+                <li>Go to <strong>File → Share → Publish to web</strong></li>
+                <li>Select <strong>Entire Document</strong></li>
+                <li>Click <strong>Publish</strong></li>
+              </ol>
+              <p style={{marginTop: 12}}>
+                <button className="primary" onClick={loadData}>Retry</button>
+              </p>
+            </div>
           </div>
         </div>
       );
