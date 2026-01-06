@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>EPL Picks Manager</title>
+
+    <!-- React (no build step) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel (JSX in this file) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- SheetJS (XLSX import/export) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+      :root { --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#9fb0d0; --line:#233458; --accent:#1b3bff; }
+      body { margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
+      a { color: inherit; text-decoration: none; }
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 18px; }
+      h1 { margin: 0 0 10px; font-size: 20px; }
+      .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+      .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+      .card h2 { margin:0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: .2px; }
+      input, select, button, textarea {
+        background:#0d1730; color:var(--text); border:1px solid var(--line);
+        border-radius:10px; padding:10px; font-size: 14px;
+      }
+      button { cursor:pointer; }
+      button.primary { background:var(--accent); border-color:var(--accent); }
+      button.danger { background:#a31616; border-color:#a31616; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .grid { overflow:auto; max-width: 100%; border-radius: 12px; border:1px solid var(--line); }
+      table { border-collapse: collapse; width: max-content; min-width: 100%; }
+      th, td { border:1px solid var(--line); padding: 8px; white-space: nowrap; }
+      th { position: sticky; top:0; background:#0d1730; z-index:2; }
+      td.sticky, th.sticky { position: sticky; left:0; background:#0d1730; z-index:3; font-weight:700; }
+      td.sticky { z-index:1; font-weight:600; }
+      .badge { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px; }
+      .pill { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .heat0 { background:#c6efce; color:#111; }
+      .heat1 { background:#ffeb9c; color:#111; }
+      .heat2 { background:#f4cccc; color:#111; }
+      .small { font-size: 12px; }
+      .twoCol { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+      @media (max-width: 900px){ .twoCol{ grid-template-columns: 1fr; } }
+      .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 14px; }
+      .tab {
+        padding:10px 12px; border-radius: 999px; border:1px solid var(--line);
+        background:#0d1730; color:var(--muted); font-weight:600; font-size: 13px;
+      }
+      .tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+      .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 2px 6px; border:1px solid var(--line); border-radius: 6px; }
+      .ok { color:#7CFFB2; }
+      .warn { color:#FFD07C; }
+      .bad { color:#FF8C8C; }
+      .right { text-align:right; }
+    </style>
+  </head>
+
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useEffect, useMemo, useState } = React;
+
+      const STORAGE_KEY = "epl_picks_site_v2";
+
+      const defaultState = {
+        competitors: ["Jack", "Christiane"],
+        teams: [
+          "Arsenal","Aston Villa","Bournemouth","Brentford","Brighton","Burnley",
+          "Chelsea","Crystal Palace","Everton","Fulham","Leeds","Liverpool",
+          "Man City","Man Utd","Newcastle","Nottingham Forest","Spurs","Sunderland",
+          "West Ham","Wolves"
+        ],
+        maxGWs: 38,
+        // picks[competitor][gw] = teamName
+        picks: {},
+        // points[competitor][gw] = integer
+        points: {},
+        // optional locking (edit prevention)
+        lockedGWs: {} // { "1": true }
+      };
+
+      function loadState(){
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if(!raw) return defaultState;
+          const parsed = JSON.parse(raw);
+          return { ...defaultState, ...parsed };
+        } catch {
+          return defaultState;
+        }
+      }
+
+      function saveState(state){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function normaliseTeamName(name){
+        return (name ?? "").toString().trim();
+      }
+
+      function toInt(val){
+        const n = parseInt((val ?? "").toString(), 10);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function downloadBlob(filename, content, mime){
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function useHashRoute(){
+        const getRoute = () => (window.location.hash || "#/picks").replace("#", "");
+        const [route, setRoute] = useState(getRoute());
+        useEffect(() => {
+          const onHash = () => setRoute(getRoute());
+          window.addEventListener("hashchange", onHash);
+          return () => window.removeEventListener("hashchange", onHash);
+        }, []);
+        return [route, (r) => window.location.hash = "#" + r];
+      }
+
+      function Tab({label, route, current, setRoute}){
+        const active = current === route;
+        return (
+          <a className={"tab" + (active ? " active" : "")} href={"#" + route} onClick={(e)=>{e.preventDefault(); setRoute(route);}}>
+            {label}
+          </a>
+        );
+      }
+
+      function App(){
+        const [state, setState] = useState(loadState());
+        const [route, setRoute] = useHashRoute();
+
+        const [newCompetitor, setNewCompetitor] = useState("");
+        const [newTeam, setNewTeam] = useState("");
+        const [status, setStatus] = useState("");
+
+        useEffect(() => saveState(state), [state]);
+
+        const competitors = state.competitors;
+        const teams = state.teams;
+        const maxGWs = state.maxGWs;
+
+        const usageByCompetitorAndTeam = useMemo(() => {
+          const usage = {};
+          for (const c of competitors) usage[c] = {};
+          for (const c of competitors) for (const t of teams) usage[c][t] = 0;
+
+          for (const c of competitors) {
+            const row = state.picks?.[c] || {};
+            for (let gw=1; gw<=maxGWs; gw++){
+              const t = normaliseTeamName(row[gw]);
+              if(t && usage[c]?.[t] !== undefined) usage[c][t] += 1;
+            }
+          }
+          return usage;
+        }, [state.picks, competitors, teams, maxGWs]);
+
+        const totalTeamUsage = useMemo(() => {
+          const totals = {};
+          for (const t of teams) totals[t] = 0;
+          for (const c of competitors){
+            for (const t of teams){
+              totals[t] += (usageByCompetitorAndTeam[c]?.[t] || 0);
+            }
+          }
+          return totals;
+        }, [usageByCompetitorAndTeam, competitors, teams]);
+
+        const leastUsedTeam = useMemo(() => {
+          let bestTeam = null;
+          let bestVal = Infinity;
+          for (const t of teams){
+            const v = totalTeamUsage[t] ?? 0;
+            if (v < bestVal) { bestVal = v; bestTeam = t; }
+          }
+          return bestTeam ? { team: bestTeam, picks: bestVal } : null;
+        }, [totalTeamUsage, teams]);
+
+        const totalsByCompetitor = useMemo(() => {
+          const totals = {};
+          for (const c of competitors){
+            let sum = 0;
+            const row = state.points?.[c] || {};
+            for(let gw=1; gw<=maxGWs; gw++){
+              sum += toInt(row[gw]);
+            }
+            totals[c] = sum;
+          }
+          return totals;
+        }, [state.points, competitors, maxGWs]);
+
+        const leaderboard = useMemo(() => {
+          return [...competitors]
+            .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
+            .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
+        }, [competitors, totalsByCompetitor]);
+
+        function addCompetitor(){
+          const name = newCompetitor.trim();
+          if(!name) return;
+          if(state.competitors.includes(name)) return;
+          setState(s => ({
+            ...s,
+            competitors: [...s.competitors, name],
+            picks: { ...s.picks, [name]: (s.picks?.[name] || {}) },
+            points: { ...s.points, [name]: (s.points?.[name] || {}) }
+          }));
+          setNewCompetitor("");
+        }
+
+        function removeCompetitor(name){
+          setState(s => {
+            const next = { ...s, competitors: s.competitors.filter(c => c !== name) };
+            const picks = { ...(s.picks || {}) };
+            const points = { ...(s.points || {}) };
+            delete picks[name];
+            delete points[name];
+            next.picks = picks;
+            next.points = points;
+            return next;
+          });
+        }
+
+        function addTeam(){
+          const name = newTeam.trim();
+          if(!name) return;
+          if(state.teams.includes(name)) return;
+          setState(s => ({ ...s, teams: [...s.teams, name] }));
+          setNewTeam("");
+        }
+
+        function removeTeam(name){
+          setState(s => ({ ...s, teams: s.teams.filter(t => t !== name) }));
+        }
+
+        function isLocked(gw){
+          return !!state.lockedGWs?.[String(gw)];
+        }
+
+        function toggleLockGW(gw){
+          setState(s => {
+            const lockedGWs = { ...(s.lockedGWs || {}) };
+            const k = String(gw);
+            lockedGWs[k] = !lockedGWs[k];
+            return { ...s, lockedGWs };
+          });
+        }
+
+        function setPick(competitor, gw, team){
+          if(isLocked(gw)){
+            setStatus(`❌ GW${gw} is locked.`);
+            return;
+          }
+
+          const t = normaliseTeamName(team);
+          const currentUsage = usageByCompetitorAndTeam?.[competitor]?.[t] || 0;
+          const existing = normaliseTeamName(state.picks?.[competitor]?.[gw]);
+
+          if (t && existing !== t && currentUsage >= 2){
+            setStatus(`❌ ${competitor} has already used "${t}" twice.`);
+            return;
+          }
+
+          setStatus("");
+          setState(s => {
+            const picks = { ...(s.picks || {}) };
+            const row = { ...(picks[competitor] || {}) };
+            if(!t) delete row[gw];
+            else row[gw] = t;
+            picks[competitor] = row;
+            return { ...s, picks };
+          });
+        }
+
+        function setPoints(competitor, gw, pts){
+          if(isLocked(gw)){
+            setStatus(`❌ GW${gw} is locked.`);
+            return;
+          }
+          setStatus("");
+          setState(s => {
+            const points = { ...(s.points || {}) };
+            const row = { ...(points[competitor] || {}) };
+            const v = toInt(pts);
+            if(!v) delete row[gw];
+            else row[gw] = v;
+            points[competitor] = row;
+            return { ...s, points };
+          });
+        }
+
+        function heatClass(val){
+          if(val <= 0) return "heat0";
+          if(val === 1) return "heat1";
+          return "heat2";
+        }
+
+        // -------- Import/Export --------
+        function exportJSON(){
+          downloadBlob("epl-picks.json", JSON.stringify(state, null, 2), "application/json");
+        }
+
+        function importJSON(file){
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const obj = JSON.parse(e.target.result);
+              setState({ ...defaultState, ...obj });
+              setStatus("✅ Imported JSON successfully.");
+              setRoute("/picks");
+            } catch {
+              setStatus("❌ Could not import JSON.");
+            }
+          };
+          reader.readAsText(file);
+        }
+
+        function exportXLSX(){
+          // Creates PICKS + POINTS + LEADERBOARD + TEAMS sheets similar to your workbook
+          const headerP = ["Competitor", ...Array.from({length:maxGWs}, (_,i)=>`GW${i+1}`), "Total Points"];
+          const picksRows = competitors.map(c => {
+            const row = [c];
+            const picksRow = state.picks?.[c] || {};
+            for(let gw=1; gw<=maxGWs; gw++) row.push(picksRow[gw] || "");
+            row.push(totalsByCompetitor[c] || 0);
+            return row;
+          });
+
+          const headerPts = ["Competitor", ...Array.from({length:maxGWs}, (_,i)=>`GW${i+1}`), "Total Points"];
+          const pointsRows = competitors.map(c => {
+            const row = [c];
+            const ptsRow = state.points?.[c] || {};
+            for(let gw=1; gw<=maxGWs; gw++) row.push(toInt(ptsRow[gw]) || "");
+            row.push(totalsByCompetitor[c] || 0);
+            return row;
+          });
+
+          const leaderboardRows = [["Competitor", "Total Points"], ...leaderboard.map(r => [r.competitor, r.totalPoints])];
+          const teamsRows = [["Team"], ...teams.map(t => [t])];
+
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headerP, ...picksRows]), "PICKS");
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headerPts, ...pointsRows]), "POINTS");
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(leaderboardRows), "LEADERBOARD");
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(teamsRows), "TEAMS");
+
+          XLSX.writeFile(wb, "EPL_Picks_Site_Export.xlsx");
+        }
+
+        function importXLSX(file){
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const wb = XLSX.read(data, { type:"array" });
+
+              const picksWS = wb.Sheets["PICKS"];
+              if(!picksWS) throw new Error("No PICKS sheet");
+              const picksAOA = XLSX.utils.sheet_to_json(picksWS, { header: 1 });
+              const picksHeader = picksAOA[0] || [];
+              const compIdx = picksHeader.indexOf("Competitor");
+              if(compIdx === -1) throw new Error("No Competitor column");
+
+              const gwCols = {};
+              for(let gw=1; gw<=maxGWs; gw++){
+                const idx = picksHeader.indexOf(`GW${gw}`);
+                if(idx !== -1) gwCols[gw] = idx;
+              }
+
+              const competitorsNext = [];
+              const picksNext = {};
+              for(let r=1; r<picksAOA.length; r++){
+                const row = picksAOA[r];
+                const c = (row[compIdx] ?? "").toString().trim();
+                if(!c) continue;
+                competitorsNext.push(c);
+                picksNext[c] = {};
+                for(let gw=1; gw<=maxGWs; gw++){
+                  const idx = gwCols[gw];
+                  if(idx === undefined) continue;
+                  const t = normaliseTeamName(row[idx]);
+                  if(t) picksNext[c][gw] = t;
+                }
+              }
+
+              // Points (optional)
+              const pointsWS = wb.Sheets["POINTS"];
+              const pointsNext = {};
+              if(pointsWS){
+                const ptsAOA = XLSX.utils.sheet_to_json(pointsWS, { header: 1 });
+                const ptsHeader = ptsAOA[0] || [];
+                const compIdx2 = ptsHeader.indexOf("Competitor");
+                const gwCols2 = {};
+                for(let gw=1; gw<=maxGWs; gw++){
+                  const idx = ptsHeader.indexOf(`GW${gw}`);
+                  if(idx !== -1) gwCols2[gw] = idx;
+                }
+                for(let r=1; r<ptsAOA.length; r++){
+                  const row = ptsAOA[r];
+                  const c = (row[compIdx2] ?? "").toString().trim();
+                  if(!c) continue;
+                  pointsNext[c] = {};
+                  for(let gw=1; gw<=maxGWs; gw++){
+                    const idx = gwCols2[gw];
+                    if(idx === undefined) continue;
+                    const v = toInt(row[idx]);
+                    if(v) pointsNext[c][gw] = v;
+                  }
+                }
+              }
+
+              // Teams (optional)
+              const teamsWS = wb.Sheets["TEAMS"];
+              let teamsNext = null;
+              if(teamsWS){
+                const tAOA = XLSX.utils.sheet_to_json(teamsWS, { header: 1 });
+                // Expect header "Team" in row 0
+                const arr = [];
+                for(let r=1; r<tAOA.length; r++){
+                  const v = normaliseTeamName(tAOA[r]?.[0]);
+                  if(v) arr.push(v);
+                }
+                if(arr.length) teamsNext = arr;
+              }
+
+              // If TEAMS missing, derive from picks
+              if(!teamsNext){
+                const s = new Set(state.teams);
+                for(const c of competitorsNext){
+                  Object.values(picksNext[c] || {}).forEach(t => s.add(normaliseTeamName(t)));
+                }
+                teamsNext = Array.from(s).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+              }
+
+              setState(s => ({
+                ...s,
+                competitors: competitorsNext.length ? competitorsNext : s.competitors,
+                teams: teamsNext,
+                picks: picksNext,
+                points: Object.keys(pointsNext).length ? pointsNext : (s.points || {})
+              }));
+              setStatus("✅ Imported XLSX successfully.");
+              setRoute("/picks");
+            } catch (err){
+              setStatus("❌ Could not import XLSX (needs a PICKS sheet with Competitor + GW columns).");
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        }
+
+        function resetAll(){
+          if(confirm("Reset everything to defaults?")){
+            setState(defaultState);
+            setStatus("Reset.");
+            setRoute("/picks");
+          }
+        }
+
+        // -------- Views --------
+        function TopBar(){
+          return (
+            <>
+              <h1>EPL Picks Manager</h1>
+              <div className="pill" style={{marginBottom: 10}}>
+                {leastUsedTeam && (
+                  <span className="badge">
+                    Least used team: <b>{leastUsedTeam.team}</b> ({leastUsedTeam.picks} picks)
+                  </span>
+                )}
+                <span className="badge">Rule: max <b>2</b> picks per team per competitor</span>
+                <span className="badge">Auto-saves locally on this device</span>
+              </div>
+
+              <div className="tabs">
+                <Tab label="Picks" route="/picks" current={route} setRoute={setRoute} />
+                <Tab label="Points" route="/points" current={route} setRoute={setRoute} />
+                <Tab label="Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
+                <Tab label="Usage Heatmap" route="/usage" current={route} setRoute={setRoute} />
+                <Tab label="Admin / Import" route="/admin" current={route} setRoute={setRoute} />
+              </div>
+
+              {status && <div className="card" style={{marginBottom:12}}><div>{status}</div></div>}
+            </>
+          );
+        }
+
+        function PicksPage(){
+          return (
+            <div className="card">
+              <h2>Picks (by Gameweek)</h2>
+
+              <div className="muted" style={{marginBottom:10}}>
+                Lock a GW to prevent edits after deadline. Locked GWs show a 🔒.
+              </div>
+
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Competitor</th>
+                      {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => (
+                        <th key={gw}>
+                          <div className="pill" style={{justifyContent:"space-between"}}>
+                            <span>GW{gw}{isLocked(gw) ? " 🔒" : ""}</span>
+                            <button className="small" onClick={()=>toggleLockGW(gw)}>
+                              {isLocked(gw) ? "Unlock" : "Lock"}
+                            </button>
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitors.map(c => (
+                      <tr key={c}>
+                        <td className="sticky">{c}</td>
+                        {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => {
+                          const current = state.picks?.[c]?.[gw] || "";
+                          const disabled = isLocked(gw);
+                          return (
+                            <td key={gw}>
+                              <select
+                                value={current}
+                                disabled={disabled}
+                                onChange={e => setPick(c, gw, e.target.value)}
+                                style={{width:160, opacity: disabled ? 0.6 : 1}}
+                              >
+                                <option value="">—</option>
+                                {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="muted" style={{marginTop:10}}>
+                Tip: On iPhone, rotate to landscape for easier scrolling.
+              </div>
+            </div>
+          );
+        }
+
+        function PointsPage(){
+          return (
+            <div className="card">
+              <h2>Points (by Gameweek)</h2>
+              <div className="muted" style={{marginBottom:10}}>
+                Enter numeric points per GW. Totals update automatically and feed the Leaderboard.
+              </div>
+
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Competitor</th>
+                      {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => (
+                        <th key={gw}>GW{gw}{isLocked(gw) ? " 🔒" : ""}</th>
+                      ))}
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitors.map(c => (
+                      <tr key={c}>
+                        <td className="sticky">{c}</td>
+                        {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => {
+                          const current = state.points?.[c]?.[gw] ?? "";
+                          const disabled = isLocked(gw);
+                          return (
+                            <td key={gw}>
+                              <input
+                                style={{width:70, textAlign:"right", opacity: disabled ? 0.6 : 1}}
+                                disabled={disabled}
+                                value={current}
+                                inputMode="numeric"
+                                onChange={(e)=>setPoints(c, gw, e.target.value)}
+                                placeholder=""
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="right"><b>{totalsByCompetitor[c] || 0}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
+        function LeaderboardPage(){
+          return (
+            <div className="card">
+              <h2>Leaderboard</h2>
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Competitor</th>
+                      <th className="right">Total Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map((r, idx) => (
+                      <tr key={r.competitor}>
+                        <td>{idx+1}</td>
+                        <td><b>{r.competitor}</b></td>
+                        <td className="right"><b>{r.totalPoints}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
+        function UsagePage(){
+          return (
+            <div className="card">
+              <h2>Usage Heatmap (0/1/2)</h2>
+              <div className="muted" style={{marginBottom:10}}>
+                Green = 0 used, Amber = 1 used, Red = 2 used (maxed out).
+              </div>
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Team</th>
+                      {competitors.map(c => <th key={c}>{c}</th>)}
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teams.map(team => {
+                      const total = (totalTeamUsage[team] ?? 0);
+                      return (
+                        <tr key={team}>
+                          <td className="sticky">{team}</td>
+                          {competitors.map(c => {
+                            const v = usageByCompetitorAndTeam?.[c]?.[team] || 0;
+                            return (
+                              <td key={c} className={heatClass(v)} style={{textAlign:"center", fontWeight:800}}>
+                                {v}
+                              </td>
+                            );
+                          })}
+                          <td style={{textAlign:"center"}}>{total}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
+        function AdminPage(){
+          return (
+            <div className="twoCol">
+              <div className="card">
+                <h2>Manage Competitors & Teams</h2>
+
+                <div className="row">
+                  <div style={{flex:1, minWidth:260}}>
+                    <div className="muted">Add competitor</div>
+                    <div className="row">
+                      <input value={newCompetitor} onChange={e=>setNewCompetitor(e.target.value)} placeholder="Name" />
+                      <button className="primary" onClick={addCompetitor}>Add</button>
+                    </div>
+
+                    <div style={{marginTop:10}}>
+                      <div className="muted">Competitors</div>
+                      <div className="pill">
+                        {competitors.map(c => (
+                          <span key={c} className="badge">
+                            {c}{" "}
+                            <button className="danger small" onClick={()=>removeCompetitor(c)} style={{marginLeft:6}}>x</button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{flex:1, minWidth:260}}>
+                    <div className="muted">Add team</div>
+                    <div className="row">
+                      <input value={newTeam} onChange={e=>setNewTeam(e.target.value)} placeholder="Team name" />
+                      <button className="primary" onClick={addTeam}>Add</button>
+                    </div>
+
+                    <div style={{marginTop:10}}>
+                      <div className="muted">Teams</div>
+                      <div className="pill">
+                        {teams.map(t => (
+                          <span key={t} className="badge">
+                            {t}{" "}
+                            <button className="danger small" onClick={()=>removeTeam(t)} style={{marginLeft:6}}>x</button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <hr style={{borderColor:"var(--line)", margin:"14px 0"}} />
+
+                <div className="row">
+                  <button onClick={exportJSON}>Export JSON</button>
+
+                  <label className="badge" style={{cursor:"pointer"}}>
+                    Import JSON
+                    <input type="file" accept="application/json" style={{display:"none"}}
+                      onChange={e => e.target.files?.[0] && importJSON(e.target.files[0])}
+                    />
+                  </label>
+
+                  <button onClick={exportXLSX}>Export XLSX</button>
+
+                  <label className="badge" style={{cursor:"pointer"}}>
+                    Import XLSX
+                    <input type="file" accept=".xlsx" style={{display:"none"}}
+                      onChange={e => e.target.files?.[0] && importXLSX(e.target.files[0])}
+                    />
+                  </label>
+
+                  <button className="danger" onClick={resetAll}>Reset</button>
+                </div>
+
+                <div className="muted" style={{marginTop:10}}>
+                  Notes:
+                  <ul>
+                    <li>Data saves to your browser storage (LocalStorage).</li>
+                    <li>On iPhone, keep a backup via <span className="kbd">Export JSON</span>.</li>
+                    <li>XLSX import expects a sheet called <b>PICKS</b> with <b>Competitor</b> + <b>GW1..GW38</b>. Points + Teams are optional.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="card">
+                <h2>Quick Checks</h2>
+                <div className="pill" style={{marginBottom:8}}>
+                  <span className="badge">Competitors: <b>{competitors.length}</b></span>
+                  <span className="badge">Teams: <b>{teams.length}</b></span>
+                  <span className="badge">Locked GWs: <b>{Object.values(state.lockedGWs||{}).filter(Boolean).length}</b></span>
+                </div>
+
+                <div className="muted" style={{marginBottom:10}}>
+                  This flags if anyone has exceeded the "pick twice max" rule (should be impossible, but useful after imports).
+                </div>
+
+                <div className="grid">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Competitor</th>
+                        <th>Team</th>
+                        <th className="right">Times Picked</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {competitors.flatMap(c =>
+                        teams.map(t => {
+                          const v = usageByCompetitorAndTeam?.[c]?.[t] || 0;
+                          const bad = v > 2;
+                          if(v === 0) return null;
+                          return (
+                            <tr key={c+"|"+t}>
+                              <td>{c}</td>
+                              <td>{t}</td>
+                              <td className="right">{v}</td>
+                              <td className={bad ? "bad" : (v===2 ? "warn" : "ok")}>
+                                {bad ? "Over limit" : (v===2 ? "Maxed" : "OK")}
+                              </td>
+                            </tr>
+                          );
+                        }).filter(Boolean)
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function NotFound(){
+          return (
+            <div className="card">
+              <h2>Page not found</h2>
+              <div className="muted">Use the tabs above.</div>
+            </div>
+          );
+        }
+
+        let page = null;
+        if(route === "/picks") page = <PicksPage />;
+        else if(route === "/points") page = <PointsPage />;
+        else if(route === "/leaderboard") page = <LeaderboardPage />;
+        else if(route === "/usage") page = <UsagePage />;
+        else if(route === "/admin") page = <AdminPage />;
+        else page = <NotFound />;
+
+        return (
+          <div className="wrap">
+            <TopBar />
+            {page}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
