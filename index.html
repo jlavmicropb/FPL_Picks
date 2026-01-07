@@ -241,14 +241,16 @@
       let teams = [];
       try {
         const teamsData = await fetchSheetAsCSV("TEAMS");
-        if(teamsData && teamsData.length > 1){
-          for(let r=1; r<teamsData.length; r++){
+        if(teamsData && teamsData.length > 0){
+          // Start from row 0 (no header row in TEAMS sheet)
+          for(let r=0; r<teamsData.length; r++){
             const row = teamsData[r];
             if(!row || row.length === 0) continue;
             const v = normaliseTeamName(row[0]);
             if(v) teams.push(v);
           }
           console.log("Loaded TEAMS sheet:", teams.length, "teams");
+          console.log("Teams list:", teams);
         }
       } catch(e){
         console.log("TEAMS sheet not found (optional):", e.message);
@@ -528,7 +530,7 @@
         <div className="card">
           <h2>Usage Heatmap (0/1/2)</h2>
           <div className="muted" style={{marginBottom:10}}>
-            Green = 0 used, Amber = 1 used, Red = 2 used (maxed out).
+            Green = 0 used, Amber = 1 used, Red = 2 used (maxed out). Showing {teams.length} teams.
           </div>
           <div className="grid">
             <table>
