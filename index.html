@@ -348,60 +348,48 @@
 
     const { competitors, teams, picks, points, maxGWs } = state;
 
-    const usageByCompetitorAndTeam = useMemo(() => {
-      const usage = {};
-      for (const c of competitors) usage[c] = {};
-      for (const c of competitors) for (const t of teams) usage[c][t] = 0;
+    // Calculate usage statistics
+    const usageByCompetitorAndTeam = {};
+    for (const c of competitors) usageByCompetitorAndTeam[c] = {};
+    for (const c of competitors) for (const t of teams) usageByCompetitorAndTeam[c][t] = 0;
 
-      for (const c of competitors) {
-        const row = picks?.[c] || {};
-        for (let gw=1; gw<=maxGWs; gw++){
-          const t = normaliseTeamName(row[gw]);
-          if(t && usage[c]?.[t] !== undefined) usage[c][t] += 1;
-        }
+    for (const c of competitors) {
+      const row = picks?.[c] || {};
+      for (let gw=1; gw<=maxGWs; gw++){
+        const t = normaliseTeamName(row[gw]);
+        if(t && usageByCompetitorAndTeam[c]?.[t] !== undefined) usageByCompetitorAndTeam[c][t] += 1;
       }
-      return usage;
-    }, [JSON.stringify(picks), JSON.stringify(competitors), JSON.stringify(teams), maxGWs]);
+    }
 
-    const totalTeamUsage = useMemo(() => {
-      const totals = {};
-      for (const t of teams) totals[t] = 0;
-      for (const c of competitors){
-        for (const t of teams){
-          totals[t] += (usageByCompetitorAndTeam[c]?.[t] || 0);
-        }
-      }
-      return totals;
-    }, [JSON.stringify(usageByCompetitorAndTeam), JSON.stringify(competitors), JSON.stringify(teams)]);
-
-    const leastUsedTeam = useMemo(() => {
-      let bestTeam = null;
-      let bestVal = Infinity;
+    const totalTeamUsage = {};
+    for (const t of teams) totalTeamUsage[t] = 0;
+    for (const c of competitors){
       for (const t of teams){
-        const v = totalTeamUsage[t] ?? 0;
-        if (v < bestVal) { bestVal = v; bestTeam = t; }
+        totalTeamUsage[t] += (usageByCompetitorAndTeam[c]?.[t] || 0);
       }
-      return bestTeam ? { team: bestTeam, picks: bestVal } : null;
-    }, [JSON.stringify(totalTeamUsage), JSON.stringify(teams)]);
+    }
 
-    const totalsByCompetitor = useMemo(() => {
-      const totals = {};
-      for (const c of competitors){
-        let sum = 0;
-        const row = points?.[c] || {};
-        for(let gw=1; gw<=maxGWs; gw++){
-          sum += toInt(row[gw]);
-        }
-        totals[c] = sum;
+    let leastUsedTeam = null;
+    let bestVal = Infinity;
+    for (const t of teams){
+      const v = totalTeamUsage[t] ?? 0;
+      if (v < bestVal) { bestVal = v; leastUsedTeam = t; }
+    }
+    const leastUsedTeamInfo = leastUsedTeam ? { team: leastUsedTeam, picks: bestVal } : null;
+
+    const totalsByCompetitor = {};
+    for (const c of competitors){
+      let sum = 0;
+      const row = points?.[c] || {};
+      for(let gw=1; gw<=maxGWs; gw++){
+        sum += toInt(row[gw]);
       }
-      return totals;
-    }, [JSON.stringify(points), JSON.stringify(competitors), maxGWs]);
+      totalsByCompetitor[c] = sum;
+    }
 
-    const leaderboard = useMemo(() => {
-      return [...competitors]
-        .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
-        .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
-    }, [JSON.stringify(competitors), JSON.stringify(totalsByCompetitor)]);
+    const leaderboard = [...competitors]
+      .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
+      .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
 
     function heatClass(val){
       if(val <= 0) return "heat0";
@@ -419,9 +407,9 @@
           </div>
 
           <div className="pill" style={{marginBottom: 10}}>
-            {leastUsedTeam && (
+            {leastUsedTeamInfo && (
               <span className="badge">
-                Least used team: <b>{leastUsedTeam.team}</b> ({leastUsedTeam.picks} picks)
+                Least used team: <b>{leastUsedTeamInfo.team}</b> ({leastUsedTeamInfo.picks} picks)
               </span>
             )}
             <span className="badge">Rule: max <b>2</b> picks per team per competitor</span>
