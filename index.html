@@ -361,7 +361,7 @@
         }
       }
       return usage;
-    }, [picks, competitors, teams, maxGWs]);
+    }, [JSON.stringify(picks), JSON.stringify(competitors), JSON.stringify(teams), maxGWs]);
 
     const totalTeamUsage = useMemo(() => {
       const totals = {};
@@ -372,7 +372,7 @@
         }
       }
       return totals;
-    }, [usageByCompetitorAndTeam, competitors, teams]);
+    }, [JSON.stringify(usageByCompetitorAndTeam), JSON.stringify(competitors), JSON.stringify(teams)]);
 
     const leastUsedTeam = useMemo(() => {
       let bestTeam = null;
@@ -382,7 +382,7 @@
         if (v < bestVal) { bestVal = v; bestTeam = t; }
       }
       return bestTeam ? { team: bestTeam, picks: bestVal } : null;
-    }, [totalTeamUsage, teams]);
+    }, [JSON.stringify(totalTeamUsage), JSON.stringify(teams)]);
 
     const totalsByCompetitor = useMemo(() => {
       const totals = {};
@@ -395,13 +395,13 @@
         totals[c] = sum;
       }
       return totals;
-    }, [points, competitors, maxGWs]);
+    }, [JSON.stringify(points), JSON.stringify(competitors), maxGWs]);
 
     const leaderboard = useMemo(() => {
       return [...competitors]
         .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
         .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
-    }, [competitors, totalsByCompetitor]);
+    }, [JSON.stringify(competitors), JSON.stringify(totalsByCompetitor)]);
 
     function heatClass(val){
       if(val <= 0) return "heat0";
