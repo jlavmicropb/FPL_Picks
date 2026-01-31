@@ -93,12 +93,10 @@
   .export-btn { margin-top: 12px; }
 </style>
 
-
   </head>
 
   <body>
     <div id="root"></div>
-
 
 <script type="text/babel">
   const { useEffect, useRef, useState } = React;
@@ -1398,6 +1396,10 @@
             📌 "Max Possible" assumes every remaining week scores the season-best weekly score ({highestWeeklyScore} pts).  
             "Projected Final" assumes each competitor continues at their current average.
           </div>
+          </div>
+
+          <div className="card">
+            <h2>📋 Remaining Picks Available</h2>
             <div className="muted" style={{marginBottom:10}}>
               Shows how many times each competitor can still pick each team (max 2 per team).
             </div>
@@ -1464,6 +1466,7 @@
 
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
+
 
   </body>
 </html>
