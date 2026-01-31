@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>EPL Picks Manager</title>
 
-```
 <!-- React (no build step) -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -17,23 +16,25 @@
 <!-- PapaParse for CSV -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-<!-- Chart.js for line graph -->
+<!-- Chart.js for graphs -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <style>
   :root { --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#9fb0d0; --line:#233458; --accent:#1b3bff; }
   body { margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
   a { color: inherit; text-decoration: none; }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 18px; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 18px; }
   h1 { margin: 0 0 10px; font-size: 20px; }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:12px; }
   .card h2 { margin:0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: .2px; }
+  .card h3 { margin:12px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
   input, select, button, textarea {
     background:#0d1730; color:var(--text); border:1px solid var(--line);
     border-radius:10px; padding:10px; font-size: 14px;
   }
-  button { cursor:pointer; }
+  button { cursor:pointer; transition: all 0.2s; }
+  button:hover { opacity: 0.8; }
   button.primary { background:var(--accent); border-color:var(--accent); }
   button.danger { background:#a31616; border-color:#a31616; }
   button.small { padding: 6px 12px; font-size: 12px; }
@@ -45,20 +46,25 @@
   td.sticky, th.sticky { position: sticky; left:0; background:#0d1730; z-index:3; font-weight:700; }
   td.sticky { z-index:1; font-weight:600; }
   .badge { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px; }
+  .badge.large { padding:8px 12px; font-size:14px; }
+  .badge.success { background:#1a4d2e; border-color:#2d7a4a; color:#7CFFB2; }
+  .badge.warning { background:#4d3d1a; border-color:#7a6a2d; color:#FFD07C; }
+  .badge.danger { background:#4d1a1a; border-color:#7a2d2d; color:#FF8C8C; }
   .pill { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .heat0 { background:#c6efce; color:#111; }
   .heat1 { background:#ffeb9c; color:#111; }
   .heat2 { background:#f4cccc; color:#111; }
   .small { font-size: 12px; }
-  .twoCol { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-  @media (max-width: 900px){ .twoCol{ grid-template-columns: 1fr; } }
-  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 14px; }
+  .stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:12px; }
+  .stat-card { background:#0d1730; border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .stat-value { font-size:24px; font-weight:800; margin:4px 0; }
+  .stat-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 14px; overflow-x: auto; }
   .tab {
     padding:10px 12px; border-radius: 999px; border:1px solid var(--line);
-    background:#0d1730; color:var(--muted); font-weight:600; font-size: 13px;
+    background:#0d1730; color:var(--muted); font-weight:600; font-size: 13px; white-space: nowrap;
   }
   .tab.active { background: var(--accent); border-color: var(--accent); color: white; }
-  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 2px 6px; border:1px solid var(--line); border-radius: 6px; }
   .ok { color:#7CFFB2; }
   .warn { color:#FFD07C; }
   .bad { color:#FF8C8C; }
@@ -68,7 +74,6 @@
   .spinner { border: 3px solid var(--line); border-top: 3px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   .readonly-banner { background: #2a4a7c; padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; text-align: center; font-size: 13px; }
-  pre { background: #0d1730; padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 11px; }
   .rank-1 { background: #FFD700; color: #111; font-weight: 800; }
   .rank-2 { background: #C0C0C0; color: #111; font-weight: 800; }
   .rank-3 { background: #CD7F32; color: #111; font-weight: 800; }
@@ -76,7 +81,16 @@
   .rank-down { color: #FF8C8C; }
   .rank-same { color: var(--muted); }
   .chart-container { position: relative; height: 400px; margin: 20px 0; }
-  .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+  .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .selector { margin-bottom: 12px; }
+  .selector select { width: 100%; max-width: 300px; }
+  .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 768px) { 
+    .comparison-grid { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  }
+  .highlight-box { background: rgba(27, 59, 255, 0.1); border: 1px solid var(--accent); border-radius: 8px; padding: 12px; margin: 8px 0; }
+  .export-btn { margin-top: 12px; }
 </style>
 ```
 
@@ -101,7 +115,7 @@
   }
 
   function useHashRoute(){
-    const getRoute = () => (window.location.hash || "#/picks").replace("#", "");
+    const getRoute = () => (window.location.hash || "#/dashboard").replace("#", "");
     const [route, setRoute] = useState(getRoute());
     useEffect(() => {
       const onHash = () => setRoute(getRoute());
@@ -125,22 +139,16 @@
       ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`
       : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
     
-    console.log(`Fetching ${sheetName} from:`, url);
-    
     const response = await fetch(url);
     if(!response.ok) {
       throw new Error(`Failed to fetch ${sheetName}: HTTP ${response.status}`);
     }
     
     const text = await response.text();
-    console.log(`${sheetName} raw response length:`, text.length);
     
     return new Promise((resolve, reject) => {
       Papa.parse(text, {
-        complete: (results) => {
-          console.log(`${sheetName} parsed rows:`, results.data.length);
-          resolve(results.data);
-        },
+        complete: (results) => resolve(results.data),
         error: (error) => reject(error)
       });
     });
@@ -148,17 +156,15 @@
 
   async function fetchSheetData(){
     try {
-      console.log("Attempting to fetch PICKS sheet...");
       let picksData;
       
       try {
         picksData = await fetchSheetAsCSV("PICKS");
       } catch(e1) {
-        console.log("Failed with sheet name, trying gid=0...");
         try {
           picksData = await fetchSheetAsCSV("PICKS", 0);
         } catch(e2) {
-          throw new Error("Could not fetch PICKS sheet. Make sure the sheet is shared with 'Anyone with the link' can view.");
+          throw new Error("Could not fetch PICKS sheet.");
         }
       }
 
@@ -167,14 +173,12 @@
       }
 
       const picksHeader = picksData[0];
-      console.log("PICKS header:", picksHeader);
-      
       const compIdx = picksHeader.findIndex(h => 
         String(h).toLowerCase().includes('competitor')
       );
       
       if(compIdx === -1) {
-        throw new Error(`No 'Competitor' column found in PICKS. Headers found: ${picksHeader.join(', ')}`);
+        throw new Error(`No 'Competitor' column found in PICKS.`);
       }
 
       const maxGWs = 38;
@@ -183,8 +187,6 @@
         const idx = picksHeader.findIndex(h => String(h).trim() === `GW${gw}`);
         if(idx !== -1) gwCols[gw] = idx;
       }
-
-      console.log("Found GW columns:", Object.keys(gwCols).length);
 
       const competitors = [];
       const picks = {};
@@ -206,8 +208,6 @@
           if(t) picks[c][gw] = t;
         }
       }
-
-      console.log("Loaded competitors:", competitors);
 
       let points = {};
       try {
@@ -239,10 +239,9 @@
               if(v) points[c][gw] = v;
             }
           }
-          console.log("Loaded POINTS sheet");
         }
       } catch(e){
-        console.log("POINTS sheet not found (optional):", e.message);
+        console.log("POINTS sheet not found (optional)");
       }
 
       let teams = [];
@@ -255,10 +254,9 @@
             const v = normaliseTeamName(row[0]);
             if(v) teams.push(v);
           }
-          console.log("Loaded TEAMS sheet:", teams.length, "teams");
         }
       } catch(e){
-        console.log("TEAMS sheet not found (optional):", e.message);
+        console.log("TEAMS sheet not found");
       }
 
       if(!teams.length){
@@ -270,10 +268,9 @@
           });
         }
         teams = Array.from(s).sort((a,b)=>a.localeCompare(b));
-        console.log("Derived teams from picks:", teams.length);
       }
 
-      // Determine current gameweek (last GW with any points data)
+      // Determine current gameweek
       let currentGW = 0;
       for(let gw=1; gw<=maxGWs; gw++){
         let hasData = false;
@@ -283,11 +280,8 @@
             break;
           }
         }
-        if(hasData){
-          currentGW = gw;
-        }
+        if(hasData) currentGW = gw;
       }
-      console.log("Current gameweek detected:", currentGW);
 
       return { competitors, teams, picks, points, maxGWs, currentGW };
       
@@ -329,7 +323,6 @@
           <div className="card loading">
             <div className="spinner"></div>
             <p style={{marginTop: 20}}>Loading data from Google Sheets...</p>
-            <p className="muted">Check browser console (F12) for details</p>
           </div>
         </div>
       );
@@ -342,20 +335,9 @@
           <div className="card">
             <h2>Error Loading Data</h2>
             <p className="bad">{error}</p>
-            <div className="muted" style={{marginTop: 12}}>
-              <p><strong>Required setup:</strong></p>
-              <ol>
-                <li>Open your Google Sheet: <a href={`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`} target="_blank" style={{textDecoration:"underline"}}>Open Sheet</a></li>
-                <li>Click the <strong>Share</strong> button (top right)</li>
-                <li>Under "General access", change from "Restricted" to <strong>"Anyone with the link"</strong></li>
-                <li>Make sure role is set to <strong>"Viewer"</strong></li>
-                <li>Click <strong>Done</strong></li>
-                <li>Wait a minute, then refresh this page</li>
-              </ol>
-              <p style={{marginTop: 12}}>
-                <button className="primary" onClick={loadData}>Retry</button>
-              </p>
-            </div>
+            <p style={{marginTop: 12}}>
+              <button className="primary" onClick={loadData}>Retry</button>
+            </p>
           </div>
         </div>
       );
@@ -363,40 +345,41 @@
 
     const { competitors, teams, picks, points, maxGWs, currentGW } = state;
 
+    // Calculate all analytics
     const usageByCompetitorAndTeam = {};
-    for (const c of competitors) usageByCompetitorAndTeam[c] = {};
-    for (const c of competitors) for (const t of teams) usageByCompetitorAndTeam[c][t] = 0;
+    for (const c of competitors) {
+      usageByCompetitorAndTeam[c] = {};
+      for (const t of teams) usageByCompetitorAndTeam[c][t] = 0;
+    }
 
     for (const c of competitors) {
       const row = picks?.[c] || {};
       for (let gw=1; gw<=maxGWs; gw++){
         const t = normaliseTeamName(row[gw]);
-        if(t && usageByCompetitorAndTeam[c]?.[t] !== undefined) usageByCompetitorAndTeam[c][t] += 1;
+        if(t && usageByCompetitorAndTeam[c]?.[t] !== undefined) {
+          usageByCompetitorAndTeam[c][t] += 1;
+        }
       }
     }
 
     const totalTeamUsage = {};
-    for (const t of teams) totalTeamUsage[t] = 0;
-    for (const c of competitors){
-      for (const t of teams){
+    for (const t of teams) {
+      totalTeamUsage[t] = 0;
+      for (const c of competitors){
         totalTeamUsage[t] += (usageByCompetitorAndTeam[c]?.[t] || 0);
       }
     }
 
-    let leastUsedTeam = null;
-    let bestVal = Infinity;
-    for (const t of teams){
-      const v = totalTeamUsage[t] ?? 0;
-      if (v < bestVal) { bestVal = v; leastUsedTeam = t; }
-    }
-    const leastUsedTeamInfo = leastUsedTeam ? { team: leastUsedTeam, picks: bestVal } : null;
-
     const totalsByCompetitor = {};
+    const weeklyPointsByCompetitor = {};
     for (const c of competitors){
       let sum = 0;
+      weeklyPointsByCompetitor[c] = {};
       const row = points?.[c] || {};
       for(let gw=1; gw<=maxGWs; gw++){
-        sum += toInt(row[gw]);
+        const pts = toInt(row[gw]);
+        weeklyPointsByCompetitor[c][gw] = pts;
+        sum += pts;
       }
       totalsByCompetitor[c] = sum;
     }
@@ -405,36 +388,206 @@
       .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
       .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
 
+    // Team performance analytics
+    const teamPerformance = {};
+    for(const t of teams){
+      const scores = [];
+      for(const c of competitors){
+        for(let gw=1; gw<=currentGW; gw++){
+          if(picks?.[c]?.[gw] === t){
+            scores.push(toInt(points?.[c]?.[gw]));
+          }
+        }
+      }
+      const total = scores.reduce((a,b) => a+b, 0);
+      const avg = scores.length > 0 ? total / scores.length : 0;
+      teamPerformance[t] = { total, avg, picks: scores.length };
+    }
+
     function heatClass(val){
       if(val <= 0) return "heat0";
       if(val === 1) return "heat1";
       return "heat2";
     }
 
+    function exportToCSV(data, filename){
+      const csv = Papa.unparse(data);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     function TopBar(){
       return (
         <>
-          <h1>EPL Picks Manager</h1>
+          <h1>⚽ EPL Picks Manager</h1>
           
           <div className="readonly-banner">
-            🔒 Read-Only Mode • Data from Google Sheets • Last updated: {lastUpdate} • Current GW: {currentGW} • <a href="#" onClick={(e)=>{e.preventDefault(); loadData();}} style={{textDecoration:"underline"}}>Refresh</a>
-          </div>
-
-          <div className="pill" style={{marginBottom: 10}}>
-            {leastUsedTeamInfo && (
-              <span className="badge">
-                Least used team: <b>{leastUsedTeamInfo.team}</b> ({leastUsedTeamInfo.picks} picks)
-              </span>
-            )}
-            <span className="badge">Rule: max <b>2</b> picks per team per competitor</span>
+            🔒 Read-Only Mode • Last updated: {lastUpdate} • Current GW: {currentGW || 'TBD'} • 
+            <a href="#" onClick={(e)=>{e.preventDefault(); loadData();}} style={{textDecoration:"underline", marginLeft: 8}}>Refresh</a>
           </div>
 
           <div className="tabs">
-            <Tab label="Picks" route="/picks" current={route} setRoute={setRoute} />
-            <Tab label="Points" route="/points" current={route} setRoute={setRoute} />
-            <Tab label="Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
-            <Tab label="Leaderboard History" route="/history" current={route} setRoute={setRoute} />
-            <Tab label="Usage Heatmap" route="/usage" current={route} setRoute={setRoute} />
+            <Tab label="📊 Dashboard" route="/dashboard" current={route} setRoute={setRoute} />
+            <Tab label="📋 Picks" route="/picks" current={route} setRoute={setRoute} />
+            <Tab label="💯 Points" route="/points" current={route} setRoute={setRoute} />
+            <Tab label="📈 Weekly" route="/weekly" current={route} setRoute={setRoute} />
+            <Tab label="🏆 Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
+            <Tab label="📉 History" route="/history" current={route} setRoute={setRoute} />
+            <Tab label="🔥 Heatmap" route="/usage" current={route} setRoute={setRoute} />
+            <Tab label="⚔️ Head-to-Head" route="/h2h" current={route} setRoute={setRoute} />
+            <Tab label="🎯 Teams" route="/teams" current={route} setRoute={setRoute} />
+            <Tab label="🔮 Predictions" route="/predictions" current={route} setRoute={setRoute} />
+          </div>
+        </>
+      );
+    }
+
+    function DashboardPage(){
+      const leader = leaderboard[0];
+      const second = leaderboard[1];
+      const gap = leader && second ? leader.totalPoints - second.totalPoints : 0;
+
+      // Calculate stats
+      let avgPerWeek = 0;
+      let bestWeek = { gw: 0, competitor: '', points: 0 };
+      let worstWeek = { gw: currentGW, competitor: '', points: Infinity };
+      
+      for(let gw=1; gw<=currentGW; gw++){
+        for(const c of competitors){
+          const pts = toInt(points?.[c]?.[gw]);
+          avgPerWeek += pts;
+          if(pts > bestWeek.points){
+            bestWeek = { gw, competitor: c, points: pts };
+          }
+          if(pts < worstWeek.points && pts > 0){
+            worstWeek = { gw, competitor: c, points: pts };
+          }
+        }
+      }
+      avgPerWeek = currentGW > 0 ? (avgPerWeek / (currentGW * competitors.length)).toFixed(1) : 0;
+
+      // Most consistent (lowest variance)
+      const variances = competitors.map(c => {
+        const weeklyPts = [];
+        for(let gw=1; gw<=currentGW; gw++){
+          weeklyPts.push(toInt(points?.[c]?.[gw]));
+        }
+        const avg = weeklyPts.reduce((a,b)=>a+b,0) / weeklyPts.length;
+        const variance = weeklyPts.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / weeklyPts.length;
+        return { competitor: c, variance, stdDev: Math.sqrt(variance) };
+      });
+      const mostConsistent = variances.sort((a,b) => a.variance - b.variance)[0];
+
+      // Biggest comeback
+      let biggestClimb = { competitor: '', change: 0 };
+      if(currentGW >= 2){
+        const history = [];
+        for(let gw=1; gw<=currentGW; gw++){
+          const standings = competitors.map(c => {
+            let cumPts = 0;
+            for(let w=1; w<=gw; w++) cumPts += toInt(points?.[c]?.[w]);
+            return { competitor: c, points: cumPts };
+          });
+          standings.sort((a,b) => b.points - a.points);
+          history.push(standings.map((s,i) => ({ ...s, rank: i+1 })));
+        }
+        
+        for(const c of competitors){
+          const firstRank = history[0]?.find(s => s.competitor === c)?.rank || 0;
+          const lastRank = history[currentGW-1]?.find(s => s.competitor === c)?.rank || 0;
+          const change = firstRank - lastRank;
+          if(change > biggestClimb.change){
+            biggestClimb = { competitor: c, change };
+          }
+        }
+      }
+
+      // Ties
+      const ties = [];
+      for(let i=0; i<leaderboard.length-1; i++){
+        if(leaderboard[i].totalPoints === leaderboard[i+1].totalPoints){
+          ties.push(`${leaderboard[i].competitor} & ${leaderboard[i+1].competitor}`);
+        }
+      }
+
+      return (
+        <>
+          <div className="card">
+            <h2>🏆 Current Standings</h2>
+            <div className="highlight-box">
+              <div style={{fontSize: 18, marginBottom: 8}}>
+                <strong>1st Place: {leader?.competitor}</strong> with <span className="ok">{leader?.totalPoints} points</span>
+              </div>
+              {gap > 0 && (
+                <div className="muted">
+                  Leading by {gap} point{gap !== 1 ? 's' : ''} over {second?.competitor}
+                </div>
+              )}
+              {ties.length > 0 && (
+                <div className="warn" style={{marginTop: 8}}>
+                  ⚠️ Tied: {ties.join(', ')}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="stat-grid">
+            <div className="stat-card">
+              <div className="stat-label">Avg Points/Week</div>
+              <div className="stat-value">{avgPerWeek}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Best Single Week</div>
+              <div className="stat-value ok">{bestWeek.points}</div>
+              <div className="muted">{bestWeek.competitor} (GW{bestWeek.gw})</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Most Consistent</div>
+              <div className="stat-value">{mostConsistent?.competitor}</div>
+              <div className="muted">σ = {mostConsistent?.stdDev.toFixed(1)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Biggest Climber</div>
+              <div className="stat-value ok">↑{biggestClimb.change}</div>
+              <div className="muted">{biggestClimb.competitor}</div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>📊 Quick Stats</h2>
+            <div className="grid">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Competitor</th>
+                    <th className="right">Total</th>
+                    <th className="right">Avg/Week</th>
+                    <th className="right">Last Week</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((r, idx) => {
+                    const avgWeek = currentGW > 0 ? (r.totalPoints / currentGW).toFixed(1) : 0;
+                    const lastWeek = currentGW > 0 ? toInt(points?.[r.competitor]?.[currentGW]) : 0;
+                    return (
+                      <tr key={r.competitor}>
+                        <td>{idx+1}</td>
+                        <td><b>{r.competitor}</b></td>
+                        <td className="right"><b>{r.totalPoints}</b></td>
+                        <td className="right">{avgWeek}</td>
+                        <td className="right">{lastWeek || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       );
@@ -468,10 +621,6 @@
               </tbody>
             </table>
           </div>
-
-          <div className="muted" style={{marginTop:10}}>
-            Tip: On iPhone, rotate to landscape for easier scrolling.
-          </div>
         </div>
       );
     }
@@ -479,7 +628,7 @@
     function PointsPage(){
       return (
         <div className="card">
-          <h2>Points (by Gameweek)</h2>
+          <h2>Cumulative Points (by Gameweek)</h2>
 
           <div className="grid">
             <table>
@@ -506,6 +655,91 @@
               </tbody>
             </table>
           </div>
+
+          <button className="primary export-btn" onClick={() => {
+            const data = competitors.map(c => {
+              const row = { Competitor: c };
+              for(let gw=1; gw<=maxGWs; gw++){
+                row[`GW${gw}`] = points?.[c]?.[gw] || '';
+              }
+              row.Total = totalsByCompetitor[c] || 0;
+              return row;
+            });
+            exportToCSV(data, 'points.csv');
+          }}>
+            📥 Export to CSV
+          </button>
+        </div>
+      );
+    }
+
+    function WeeklyPointsPage(){
+      const [selectedGW, setSelectedGW] = useState(currentGW || 1);
+
+      const weekData = competitors.map(c => ({
+        competitor: c,
+        points: toInt(points?.[c]?.[selectedGW])
+      })).sort((a,b) => b.points - a.points);
+
+      const bestThisWeek = weekData[0];
+      const worstThisWeek = weekData[weekData.length - 1];
+
+      return (
+        <div className="card">
+          <h2>Weekly Points Performance</h2>
+
+          <div className="selector">
+            <label>Select Gameweek: </label>
+            <select value={selectedGW} onChange={(e) => setSelectedGW(parseInt(e.target.value))}>
+              {Array.from({length: currentGW || maxGWs}, (_,i)=>i+1).map(gw => (
+                <option key={gw} value={gw}>GW {gw}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="highlight-box">
+            <div>
+              <span className="ok">🏆 Best: {bestThisWeek?.competitor}</span> ({bestThisWeek?.points} pts)
+            </div>
+            <div style={{marginTop: 4}}>
+              <span className="bad">📉 Worst: {worstThisWeek?.competitor}</span> ({worstThisWeek?.points} pts)
+            </div>
+          </div>
+
+          <div className="grid">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Competitor</th>
+                  <th>Team Picked</th>
+                  <th className="right">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weekData.map((r, idx) => (
+                  <tr key={r.competitor}>
+                    <td>{idx + 1}</td>
+                    <td><b>{r.competitor}</b></td>
+                    <td>{picks?.[r.competitor]?.[selectedGW] || '—'}</td>
+                    <td className="right">{r.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <button className="primary export-btn" onClick={() => {
+            const data = weekData.map((r, idx) => ({
+              Rank: idx + 1,
+              Competitor: r.competitor,
+              Team: picks?.[r.competitor]?.[selectedGW] || '—',
+              Points: r.points
+            }));
+            exportToCSV(data, `gw${selectedGW}_results.csv`);
+          }}>
+            📥 Export GW{selectedGW} to CSV
+          </button>
         </div>
       );
     }
@@ -534,6 +768,17 @@
               </tbody>
             </table>
           </div>
+
+          <button className="primary export-btn" onClick={() => {
+            const data = leaderboard.map((r, idx) => ({
+              Rank: idx + 1,
+              Competitor: r.competitor,
+              TotalPoints: r.totalPoints
+            }));
+            exportToCSV(data, 'leaderboard.csv');
+          }}>
+            📥 Export Leaderboard
+          </button>
         </div>
       );
     }
@@ -543,7 +788,6 @@
       const chartRef = useRef(null);
       const chartInstanceRef = useRef(null);
 
-      // Calculate leaderboard history up to current GW
       const effectiveGW = currentGW || maxGWs;
       const history = [];
       
@@ -570,7 +814,6 @@
         h.standings.some(s => s.points > 0)
       );
 
-      // Generate colors for each competitor
       const colors = [
         '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
         '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
@@ -578,14 +821,12 @@
 
       useEffect(() => {
         if(viewMode === 'graph' && chartRef.current && gwsWithData.length > 0){
-          // Destroy existing chart
           if(chartInstanceRef.current){
             chartInstanceRef.current.destroy();
           }
 
           const ctx = chartRef.current.getContext('2d');
           
-          // Prepare data for chart
           const labels = gwsWithData.map(h => `GW${h.gw}`);
           const datasets = competitors.map((c, idx) => {
             const data = gwsWithData.map(h => {
@@ -619,19 +860,12 @@
                   labels: {
                     color: '#e7eefc',
                     padding: 10,
-                    font: {
-                      size: 11
-                    }
+                    font: { size: 11 }
                   }
                 },
                 tooltip: {
                   mode: 'index',
-                  intersect: false,
-                  callbacks: {
-                    label: function(context) {
-                      return context.dataset.label + ': ' + context.parsed.y + (context.parsed.y === 1 ? 'st' : context.parsed.y === 2 ? 'nd' : context.parsed.y === 3 ? 'rd' : 'th');
-                    }
-                  }
+                  intersect: false
                 }
               },
               scales: {
@@ -640,14 +874,9 @@
                   beginAtZero: false,
                   ticks: {
                     stepSize: 1,
-                    color: '#9fb0d0',
-                    callback: function(value) {
-                      return value + (value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th');
-                    }
+                    color: '#9fb0d0'
                   },
-                  grid: {
-                    color: '#233458'
-                  },
+                  grid: { color: '#233458' },
                   title: {
                     display: true,
                     text: 'Position',
@@ -655,23 +884,14 @@
                   }
                 },
                 x: {
-                  ticks: {
-                    color: '#9fb0d0'
-                  },
-                  grid: {
-                    color: '#233458'
-                  },
+                  ticks: { color: '#9fb0d0' },
+                  grid: { color: '#233458' },
                   title: {
                     display: true,
                     text: 'Gameweek',
                     color: '#9fb0d0'
                   }
                 }
-              },
-              interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
               }
             }
           });
@@ -714,11 +934,6 @@
             </>
           ) : (
             <>
-              <div className="muted" style={{marginBottom:10}}>
-                Shows leaderboard position (rank) for each competitor after each gameweek. 
-                Colors highlight top 3 positions.
-              </div>
-
               <div className="grid">
                 <table>
                   <thead>
@@ -785,14 +1000,25 @@
                   </tbody>
                 </table>
               </div>
-
-              <div className="muted" style={{marginTop:10}}>
-                <div>🥇 Gold = 1st place, 🥈 Silver = 2nd place, 🥉 Bronze = 3rd place</div>
-                <div>Hover over a rank to see the points total at that gameweek</div>
-                <div>↑ = moved up, ↓ = moved down, ─ = same position</div>
-              </div>
             </>
           )}
+
+          <button className="primary export-btn" onClick={() => {
+            const data = [];
+            for(const h of gwsWithData){
+              for(const s of h.standings){
+                data.push({
+                  Gameweek: h.gw,
+                  Competitor: s.competitor,
+                  Rank: s.rank,
+                  CumulativePoints: s.points
+                });
+              }
+            }
+            exportToCSV(data, 'leaderboard_history.csv');
+          }}>
+            📥 Export History
+          </button>
         </div>
       );
     }
@@ -802,7 +1028,7 @@
         <div className="card">
           <h2>Usage Heatmap (0/1/2)</h2>
           <div className="muted" style={{marginBottom:10}}>
-            Green = 0 used, Amber = 1 used, Red = 2 used (maxed out). Showing {teams.length} teams.
+            Green = 0 used, Amber = 1 used, Red = 2 used (maxed out).
           </div>
           <div className="grid">
             <table>
@@ -838,6 +1064,295 @@
       );
     }
 
+    function HeadToHeadPage(){
+      const [comp1, setComp1] = useState(competitors[0] || '');
+      const [comp2, setComp2] = useState(competitors[1] || '');
+
+      const samePicksCount = Array.from({length: currentGW}, (_,i)=>i+1).filter(gw => 
+        picks?.[comp1]?.[gw] === picks?.[comp2]?.[gw] && picks?.[comp1]?.[gw]
+      ).length;
+
+      const comp1Total = totalsByCompetitor[comp1] || 0;
+      const comp2Total = totalsByCompetitor[comp2] || 0;
+
+      return (
+        <>
+          <div className="card">
+            <h2>⚔️ Head-to-Head Comparison</h2>
+            
+            <div className="comparison-grid">
+              <div className="selector">
+                <label>Competitor 1:</label>
+                <select value={comp1} onChange={(e) => setComp1(e.target.value)}>
+                  {competitors.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="selector">
+                <label>Competitor 2:</label>
+                <select value={comp2} onChange={(e) => setComp2(e.target.value)}>
+                  {competitors.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="highlight-box">
+              <div className="stat-grid">
+                <div>
+                  <div className="stat-label">{comp1} Total</div>
+                  <div className="stat-value">{comp1Total}</div>
+                </div>
+                <div>
+                  <div className="stat-label">{comp2} Total</div>
+                  <div className="stat-value">{comp2Total}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Gap</div>
+                  <div className="stat-value">{Math.abs(comp1Total - comp2Total)}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Same Picks</div>
+                  <div className="stat-value">{samePicksCount}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Pick Comparison</h2>
+            <div className="grid">
+              <table>
+                <thead>
+                  <tr>
+                    <th>GW</th>
+                    <th>{comp1}</th>
+                    <th>{comp2}</th>
+                    <th className="right">{comp1} Pts</th>
+                    <th className="right">{comp2} Pts</th>
+                    <th>Winner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({length: currentGW || 1}, (_,i)=>i+1).map(gw => {
+                    const pick1 = picks?.[comp1]?.[gw] || '—';
+                    const pick2 = picks?.[comp2]?.[gw] || '—';
+                    const pts1 = toInt(points?.[comp1]?.[gw]);
+                    const pts2 = toInt(points?.[comp2]?.[gw]);
+                    const winner = pts1 > pts2 ? comp1 : pts2 > pts1 ? comp2 : 'Tie';
+                    const samePick = pick1 === pick2 && pick1 !== '—';
+                    
+                    return (
+                      <tr key={gw} style={samePick ? {background: 'rgba(27,59,255,0.1)'} : {}}>
+                        <td>{gw}</td>
+                        <td>{pick1}</td>
+                        <td>{pick2}</td>
+                        <td className="right">{pts1 || '—'}</td>
+                        <td className="right">{pts2 || '—'}</td>
+                        <td>{winner}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    function TeamsPage(){
+      const sortedTeams = [...teams].sort((a,b) => {
+        return (teamPerformance[b]?.avg || 0) - (teamPerformance[a]?.avg || 0);
+      });
+
+      const bestTeam = sortedTeams[0];
+      const worstTeam = sortedTeams[sortedTeams.length - 1];
+
+      return (
+        <div className="card">
+          <h2>🎯 Team Performance Analytics</h2>
+
+          <div className="highlight-box">
+            <div className="stat-grid">
+              <div>
+                <div className="stat-label">Best Average</div>
+                <div className="stat-value ok">{bestTeam}</div>
+                <div className="muted">{teamPerformance[bestTeam]?.avg.toFixed(1)} pts/pick</div>
+              </div>
+              <div>
+                <div className="stat-label">Most Picked</div>
+                <div className="stat-value">
+                  {[...teams].sort((a,b) => teamPerformance[b]?.picks - teamPerformance[a]?.picks)[0]}
+                </div>
+                <div className="muted">
+                  {teamPerformance[[...teams].sort((a,b) => teamPerformance[b]?.picks - teamPerformance[a]?.picks)[0]]?.picks} times
+                </div>
+              </div>
+              <div>
+                <div className="stat-label">Least Picked</div>
+                <div className="stat-value">
+                  {[...teams].sort((a,b) => teamPerformance[a]?.picks - teamPerformance[b]?.picks)[0]}
+                </div>
+                <div className="muted">
+                  {teamPerformance[[...teams].sort((a,b) => teamPerformance[a]?.picks - teamPerformance[b]?.picks)[0]]?.picks} times
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid">
+            <table>
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th className="right">Times Picked</th>
+                  <th className="right">Total Points</th>
+                  <th className="right">Avg Points/Pick</th>
+                  <th>Value Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTeams.map(team => {
+                  const perf = teamPerformance[team] || { total: 0, avg: 0, picks: 0 };
+                  const usage = totalTeamUsage[team] || 0;
+                  const valueScore = perf.picks > 0 ? perf.avg / (usage / competitors.length) : 0;
+                  
+                  return (
+                    <tr key={team}>
+                      <td><b>{team}</b></td>
+                      <td className="right">{perf.picks}</td>
+                      <td className="right">{perf.total}</td>
+                      <td className="right">{perf.avg.toFixed(1)}</td>
+                      <td>
+                        {valueScore > 1.5 ? '🔥 Hot' : valueScore > 1 ? '✅ Good' : valueScore > 0.5 ? '⚠️ OK' : '❄️ Cold'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function PredictionsPage(){
+      const remainingGWs = maxGWs - (currentGW || 0);
+      
+      const projections = competitors.map(c => {
+        const currentTotal = totalsByCompetitor[c] || 0;
+        const avgPerWeek = currentGW > 0 ? currentTotal / currentGW : 0;
+        const projected = currentTotal + (avgPerWeek * remainingGWs);
+        const maxPossible = currentTotal + (20 * remainingGWs); // Assume max 20 pts/week
+        
+        return {
+          competitor: c,
+          current: currentTotal,
+          avgPerWeek: avgPerWeek.toFixed(1),
+          projected: Math.round(projected),
+          maxPossible: Math.round(maxPossible)
+        };
+      }).sort((a,b) => b.projected - a.projected);
+
+      const leader = projections[0];
+      const second = projections[1];
+      const pointsNeeded = second ? Math.max(0, (leader.projected - second.current) + 1) : 0;
+
+      // Remaining picks analysis
+      const remainingPicks = {};
+      for(const c of competitors){
+        remainingPicks[c] = {};
+        for(const t of teams){
+          const used = usageByCompetitorAndTeam[c][t] || 0;
+          remainingPicks[c][t] = Math.max(0, 2 - used);
+        }
+      }
+
+      return (
+        <>
+          <div className="card">
+            <h2>🔮 Season Projections</h2>
+            
+            <div className="highlight-box">
+              <div className="stat-grid">
+                <div>
+                  <div className="stat-label">Gameweeks Remaining</div>
+                  <div className="stat-value">{remainingGWs}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Projected Winner</div>
+                  <div className="stat-value ok">{leader?.competitor}</div>
+                  <div className="muted">{leader?.projected} pts (projected)</div>
+                </div>
+                <div>
+                  <div className="stat-label">Points to Catch Leader</div>
+                  <div className="stat-value warn">{pointsNeeded}</div>
+                  <div className="muted">For {second?.competitor}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Competitor</th>
+                    <th className="right">Current</th>
+                    <th className="right">Avg/Week</th>
+                    <th className="right">Projected Final</th>
+                    <th className="right">Max Possible</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projections.map(p => (
+                    <tr key={p.competitor}>
+                      <td><b>{p.competitor}</b></td>
+                      <td className="right">{p.current}</td>
+                      <td className="right">{p.avgPerWeek}</td>
+                      <td className="right"><b>{p.projected}</b></td>
+                      <td className="right">{p.maxPossible}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>📋 Remaining Picks Available</h2>
+            <div className="muted" style={{marginBottom:10}}>
+              Shows how many times each competitor can still pick each team (max 2 per team).
+            </div>
+            <div className="grid">
+              <table>
+                <thead>
+                  <tr>
+                    <th className="sticky">Team</th>
+                    {competitors.map(c => <th key={c}>{c}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map(team => (
+                    <tr key={team}>
+                      <td className="sticky">{team}</td>
+                      {competitors.map(c => {
+                        const remaining = remainingPicks[c][team] || 0;
+                        const className = remaining === 0 ? 'heat2' : remaining === 1 ? 'heat1' : 'heat0';
+                        return (
+                          <td key={c} className={className} style={{textAlign:"center", fontWeight:800}}>
+                            {remaining}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      );
+    }
+
     function NotFound(){
       return (
         <div className="card">
@@ -848,11 +1363,16 @@
     }
 
     let page = null;
-    if(route === "/picks") page = <PicksPage />;
+    if(route === "/dashboard") page = <DashboardPage />;
+    else if(route === "/picks") page = <PicksPage />;
     else if(route === "/points") page = <PointsPage />;
+    else if(route === "/weekly") page = <WeeklyPointsPage />;
     else if(route === "/leaderboard") page = <LeaderboardPage />;
     else if(route === "/history") page = <LeaderboardHistoryPage />;
     else if(route === "/usage") page = <UsagePage />;
+    else if(route === "/h2h") page = <HeadToHeadPage />;
+    else if(route === "/teams") page = <TeamsPage />;
+    else if(route === "/predictions") page = <PredictionsPage />;
     else page = <NotFound />;
 
     return (
@@ -865,7 +1385,7 @@
 
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
-```
+
 
   </body>
 </html>
