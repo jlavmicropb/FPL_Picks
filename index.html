@@ -6,593 +6,718 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>EPL Picks Manager</title>
 
-```
-<!-- React (no build step) -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- React (no build step) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-<!-- Babel (JSX in this file) -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel (JSX in this file) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<!-- PapaParse for CSV -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-<style>
-  :root { --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#9fb0d0; --line:#233458; --accent:#1b3bff; }
-  body { margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
-  a { color: inherit; text-decoration: none; }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 18px; }
-  h1 { margin: 0 0 10px; font-size: 20px; }
-  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
-  .card h2 { margin:0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: .2px; }
-  input, select, button, textarea {
-    background:#0d1730; color:var(--text); border:1px solid var(--line);
-    border-radius:10px; padding:10px; font-size: 14px;
-  }
-  button { cursor:pointer; }
-  button.primary { background:var(--accent); border-color:var(--accent); }
-  button.danger { background:#a31616; border-color:#a31616; }
-  .muted { color: var(--muted); font-size: 12px; }
-  .grid { overflow:auto; max-width: 100%; border-radius: 12px; border:1px solid var(--line); }
-  table { border-collapse: collapse; width: max-content; min-width: 100%; }
-  th, td { border:1px solid var(--line); padding: 8px; white-space: nowrap; }
-  th { position: sticky; top:0; background:#0d1730; z-index:2; }
-  td.sticky, th.sticky { position: sticky; left:0; background:#0d1730; z-index:3; font-weight:700; }
-  td.sticky { z-index:1; font-weight:600; }
-  .badge { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px; }
-  .pill { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .heat0 { background:#c6efce; color:#111; }
-  .heat1 { background:#ffeb9c; color:#111; }
-  .heat2 { background:#f4cccc; color:#111; }
-  .small { font-size: 12px; }
-  .twoCol { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-  @media (max-width: 900px){ .twoCol{ grid-template-columns: 1fr; } }
-  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 14px; }
-  .tab {
-    padding:10px 12px; border-radius: 999px; border:1px solid var(--line);
-    background:#0d1730; color:var(--muted); font-weight:600; font-size: 13px;
-  }
-  .tab.active { background: var(--accent); border-color: var(--accent); color: white; }
-  .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 2px 6px; border:1px solid var(--line); border-radius: 6px; }
-  .ok { color:#7CFFB2; }
-  .warn { color:#FFD07C; }
-  .bad { color:#FF8C8C; }
-  .right { text-align:right; }
-  .loading { text-align: center; padding: 40px; }
-  .spinner { border: 3px solid var(--line); border-top: 3px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .readonly-banner { background: #2a4a7c; padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; text-align: center; font-size: 13px; }
-  pre { background: #0d1730; padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 11px; }
-</style>
-```
+    <style>
+      :root { --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#9fb0d0; --line:#233458; --accent:#1b3bff; }
+      body { margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
+      a { color: inherit; text-decoration: none; }
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 18px; }
+      h1 { margin: 0 0 10px; font-size: 20px; }
+      .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+      .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+      .card h2 { margin:0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; letter-spacing: .2px; }
+      input, select, button, textarea {
+        background:#0d1730; color:var(--text); border:1px solid var(--line);
+        border-radius:10px; padding:10px; font-size: 14px;
+      }
+      button { cursor:pointer; }
+      button.primary { background:var(--accent); border-color:var(--accent); }
+      button.danger { background:#a31616; border-color:#a31616; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .grid { overflow:auto; max-width: 100%; border-radius: 12px; border:1px solid var(--line); }
+      table { border-collapse: collapse; width: max-content; min-width: 100%; }
+      th, td { border:1px solid var(--line); padding: 8px; white-space: nowrap; }
+      th { position: sticky; top:0; background:#0d1730; z-index:2; }
+      td.sticky, th.sticky { position: sticky; left:0; background:#0d1730; z-index:3; font-weight:700; }
+      td.sticky { z-index:1; font-weight:600; }
+      .badge { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px; }
+      .pill { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .heat0 { background:#c6efce; color:#111; }
+      .heat1 { background:#ffeb9c; color:#111; }
+      .heat2 { background:#f4cccc; color:#111; }
+      .small { font-size: 12px; }
+      .twoCol { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+      @media (max-width: 900px){ .twoCol{ grid-template-columns: 1fr; } }
+      .tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 14px; }
+      .tab {
+        padding:10px 12px; border-radius: 999px; border:1px solid var(--line);
+        background:#0d1730; color:var(--muted); font-weight:600; font-size: 13px;
+      }
+      .tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+      .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 2px 6px; border:1px solid var(--line); border-radius: 6px; }
+      .ok { color:#7CFFB2; }
+      .warn { color:#FFD07C; }
+      .bad { color:#FF8C8C; }
+      .right { text-align:right; }
+      .center { text-align:center; }
+      .loading { text-align: center; padding: 40px; }
+      .spinner { border: 3px solid var(--line); border-top: 3px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      .readonly-banner { background: #2a4a7c; padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; text-align: center; font-size: 13px; }
+      pre { background: #0d1730; padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 11px; }
+      .rank-1 { background: #FFD700; color: #111; font-weight: 800; }
+      .rank-2 { background: #C0C0C0; color: #111; font-weight: 800; }
+      .rank-3 { background: #CD7F32; color: #111; font-weight: 800; }
+      .rank-up { color: #7CFFB2; }
+      .rank-down { color: #FF8C8C; }
+      .rank-same { color: var(--muted); }
+    </style>
 
   </head>
 
   <body>
     <div id="root"></div>
 
-```
-<script type="text/babel">
-  const { useEffect, useMemo, useState } = React;
+    <script type="text/babel">
+      const { useEffect, useMemo, useState } = React;
 
-  // Your Google Sheets ID
-  const SHEET_ID = "1x9gMQl64X4WcR4yoLznln3CWUoqbtddg4xM7rUWBCwY";
+      // Your Google Sheets ID
+      const SHEET_ID = "1x9gMQl64X4WcR4yoLznln3CWUoqbtddg4xM7rUWBCwY";
 
-  function normaliseTeamName(name){
-    return (name ?? "").toString().trim();
-  }
+      function normaliseTeamName(name){
+        return (name ?? "").toString().trim();
+      }
 
-  function toInt(val){
-    const n = parseInt((val ?? "").toString(), 10);
-    return Number.isFinite(n) ? n : 0;
-  }
+      function toInt(val){
+        const n = parseInt((val ?? "").toString(), 10);
+        return Number.isFinite(n) ? n : 0;
+      }
 
-  function useHashRoute(){
-    const getRoute = () => (window.location.hash || "#/picks").replace("#", "");
-    const [route, setRoute] = useState(getRoute());
-    useEffect(() => {
-      const onHash = () => setRoute(getRoute());
-      window.addEventListener("hashchange", onHash);
-      return () => window.removeEventListener("hashchange", onHash);
-    }, []);
-    return [route, (r) => window.location.hash = "#" + r];
-  }
+      function useHashRoute(){
+        const getRoute = () => (window.location.hash || "#/picks").replace("#", "");
+        const [route, setRoute] = useState(getRoute());
+        useEffect(() => {
+          const onHash = () => setRoute(getRoute());
+          window.addEventListener("hashchange", onHash);
+          return () => window.removeEventListener("hashchange", onHash);
+        }, []);
+        return [route, (r) => window.location.hash = "#" + r];
+      }
 
-  function Tab({label, route, current, setRoute}){
-    const active = current === route;
-    return (
-      <a className={"tab" + (active ? " active" : "")} href={"#" + route} onClick={(e)=>{e.preventDefault(); setRoute(route);}}>
-        {label}
-      </a>
-    );
-  }
+      function Tab({label, route, current, setRoute}){
+        const active = current === route;
+        return (
+          <a className={"tab" + (active ? " active" : "")} href={"#" + route} onClick={(e)=>{e.preventDefault(); setRoute(route);}}>
+            {label}
+          </a>
+        );
+      }
 
-  async function fetchSheetAsCSV(sheetName, gid){
-    const url = gid 
-      ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`
-      : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-    
-    console.log(`Fetching ${sheetName} from:`, url);
-    
-    const response = await fetch(url);
-    if(!response.ok) {
-      throw new Error(`Failed to fetch ${sheetName}: HTTP ${response.status}`);
-    }
-    
-    const text = await response.text();
-    console.log(`${sheetName} raw response length:`, text.length);
-    
-    return new Promise((resolve, reject) => {
-      Papa.parse(text, {
-        complete: (results) => {
-          console.log(`${sheetName} parsed rows:`, results.data.length);
-          resolve(results.data);
-        },
-        error: (error) => reject(error)
-      });
-    });
-  }
+      async function fetchSheetAsCSV(sheetName, gid){
+        const url = gid 
+          ? `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`
+          : `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+        
+        console.log(`Fetching ${sheetName} from:`, url);
+        
+        const response = await fetch(url);
+        if(!response.ok) {
+          throw new Error(`Failed to fetch ${sheetName}: HTTP ${response.status}`);
+        }
+        
+        const text = await response.text();
+        console.log(`${sheetName} raw response length:`, text.length);
+        
+        return new Promise((resolve, reject) => {
+          Papa.parse(text, {
+            complete: (results) => {
+              console.log(`${sheetName} parsed rows:`, results.data.length);
+              resolve(results.data);
+            },
+            error: (error) => reject(error)
+          });
+        });
+      }
 
-  async function fetchSheetData(){
-    try {
-      // Try to fetch PICKS sheet
-      console.log("Attempting to fetch PICKS sheet...");
-      let picksData;
-      
-      try {
-        // Try with sheet name first
-        picksData = await fetchSheetAsCSV("PICKS");
-      } catch(e1) {
-        console.log("Failed with sheet name, trying gid=0...");
+      async function fetchSheetData(){
         try {
-          // Try with gid=0 (first sheet)
-          picksData = await fetchSheetAsCSV("PICKS", 0);
-        } catch(e2) {
-          throw new Error("Could not fetch PICKS sheet. Make sure the sheet is shared with 'Anyone with the link' can view.");
-        }
-      }
+          // Try to fetch PICKS sheet
+          console.log("Attempting to fetch PICKS sheet...");
+          let picksData;
+          
+          try {
+            // Try with sheet name first
+            picksData = await fetchSheetAsCSV("PICKS");
+          } catch(e1) {
+            console.log("Failed with sheet name, trying gid=0...");
+            try {
+              // Try with gid=0 (first sheet)
+              picksData = await fetchSheetAsCSV("PICKS", 0);
+            } catch(e2) {
+              throw new Error("Could not fetch PICKS sheet. Make sure the sheet is shared with 'Anyone with the link' can view.");
+            }
+          }
 
-      if(!picksData || picksData.length < 2){
-        throw new Error("PICKS sheet is empty or has no data");
-      }
+          if(!picksData || picksData.length < 2){
+            throw new Error("PICKS sheet is empty or has no data");
+          }
 
-      const picksHeader = picksData[0];
-      console.log("PICKS header:", picksHeader);
-      
-      const compIdx = picksHeader.findIndex(h => 
-        String(h).toLowerCase().includes('competitor')
-      );
-      
-      if(compIdx === -1) {
-        throw new Error(`No 'Competitor' column found in PICKS. Headers found: ${picksHeader.join(', ')}`);
-      }
-
-      const maxGWs = 38;
-      const gwCols = {};
-      for(let gw=1; gw<=maxGWs; gw++){
-        const idx = picksHeader.findIndex(h => String(h).trim() === `GW${gw}`);
-        if(idx !== -1) gwCols[gw] = idx;
-      }
-
-      console.log("Found GW columns:", Object.keys(gwCols).length);
-
-      const competitors = [];
-      const picks = {};
-      
-      for(let r=1; r<picksData.length; r++){
-        const row = picksData[r];
-        if(!row || row.length === 0) continue;
-        
-        const c = normaliseTeamName(row[compIdx]);
-        if(!c) continue;
-        
-        competitors.push(c);
-        picks[c] = {};
-        
-        for(let gw=1; gw<=maxGWs; gw++){
-          const idx = gwCols[gw];
-          if(idx === undefined) continue;
-          const t = normaliseTeamName(row[idx]);
-          if(t) picks[c][gw] = t;
-        }
-      }
-
-      console.log("Loaded competitors:", competitors);
-
-      // Try to fetch POINTS sheet (optional)
-      let points = {};
-      try {
-        const pointsData = await fetchSheetAsCSV("POINTS");
-        if(pointsData && pointsData.length > 1){
-          const ptsHeader = pointsData[0];
-          const compIdx2 = ptsHeader.findIndex(h => 
+          const picksHeader = picksData[0];
+          console.log("PICKS header:", picksHeader);
+          
+          const compIdx = picksHeader.findIndex(h => 
             String(h).toLowerCase().includes('competitor')
           );
           
-          const gwCols2 = {};
-          for(let gw=1; gw<=maxGWs; gw++){
-            const idx = ptsHeader.findIndex(h => String(h).trim() === `GW${gw}`);
-            if(idx !== -1) gwCols2[gw] = idx;
+          if(compIdx === -1) {
+            throw new Error(`No 'Competitor' column found in PICKS. Headers found: ${picksHeader.join(', ')}`);
           }
+
+          const maxGWs = 38;
+          const gwCols = {};
+          for(let gw=1; gw<=maxGWs; gw++){
+            const idx = picksHeader.findIndex(h => String(h).trim() === `GW${gw}`);
+            if(idx !== -1) gwCols[gw] = idx;
+          }
+
+          console.log("Found GW columns:", Object.keys(gwCols).length);
+
+          const competitors = [];
+          const picks = {};
           
-          for(let r=1; r<pointsData.length; r++){
-            const row = pointsData[r];
+          for(let r=1; r<picksData.length; r++){
+            const row = picksData[r];
             if(!row || row.length === 0) continue;
             
-            const c = normaliseTeamName(row[compIdx2]);
+            const c = normaliseTeamName(row[compIdx]);
             if(!c) continue;
             
-            points[c] = {};
+            competitors.push(c);
+            picks[c] = {};
+            
             for(let gw=1; gw<=maxGWs; gw++){
-              const idx = gwCols2[gw];
+              const idx = gwCols[gw];
               if(idx === undefined) continue;
-              const v = toInt(row[idx]);
-              if(v) points[c][gw] = v;
+              const t = normaliseTeamName(row[idx]);
+              if(t) picks[c][gw] = t;
             }
           }
-          console.log("Loaded POINTS sheet");
-        }
-      } catch(e){
-        console.log("POINTS sheet not found (optional):", e.message);
-      }
 
-      // Try to fetch TEAMS sheet (optional)
-      let teams = [];
-      try {
-        const teamsData = await fetchSheetAsCSV("TEAMS");
-        if(teamsData && teamsData.length > 0){
-          // Start from row 0 (no header row in TEAMS sheet)
-          for(let r=0; r<teamsData.length; r++){
-            const row = teamsData[r];
-            if(!row || row.length === 0) continue;
-            const v = normaliseTeamName(row[0]);
-            if(v) teams.push(v);
+          console.log("Loaded competitors:", competitors);
+
+          // Try to fetch POINTS sheet (optional)
+          let points = {};
+          try {
+            const pointsData = await fetchSheetAsCSV("POINTS");
+            if(pointsData && pointsData.length > 1){
+              const ptsHeader = pointsData[0];
+              const compIdx2 = ptsHeader.findIndex(h => 
+                String(h).toLowerCase().includes('competitor')
+              );
+              
+              const gwCols2 = {};
+              for(let gw=1; gw<=maxGWs; gw++){
+                const idx = ptsHeader.findIndex(h => String(h).trim() === `GW${gw}`);
+                if(idx !== -1) gwCols2[gw] = idx;
+              }
+              
+              for(let r=1; r<pointsData.length; r++){
+                const row = pointsData[r];
+                if(!row || row.length === 0) continue;
+                
+                const c = normaliseTeamName(row[compIdx2]);
+                if(!c) continue;
+                
+                points[c] = {};
+                for(let gw=1; gw<=maxGWs; gw++){
+                  const idx = gwCols2[gw];
+                  if(idx === undefined) continue;
+                  const v = toInt(row[idx]);
+                  if(v) points[c][gw] = v;
+                }
+              }
+              console.log("Loaded POINTS sheet");
+            }
+          } catch(e){
+            console.log("POINTS sheet not found (optional):", e.message);
           }
-          console.log("Loaded TEAMS sheet:", teams.length, "teams");
-          console.log("Teams list:", teams);
-        }
-      } catch(e){
-        console.log("TEAMS sheet not found (optional):", e.message);
-      }
 
-      // If no teams, derive from picks
-      if(!teams.length){
-        const s = new Set();
-        for(const c of competitors){
-          Object.values(picks[c] || {}).forEach(t => {
-            const normalized = normaliseTeamName(t);
-            if(normalized) s.add(normalized);
-          });
-        }
-        teams = Array.from(s).sort((a,b)=>a.localeCompare(b));
-        console.log("Derived teams from picks:", teams.length);
-      }
+          // Try to fetch TEAMS sheet (optional)
+          let teams = [];
+          try {
+            const teamsData = await fetchSheetAsCSV("TEAMS");
+            if(teamsData && teamsData.length > 0){
+              // Start from row 0 (no header row in TEAMS sheet)
+              for(let r=0; r<teamsData.length; r++){
+                const row = teamsData[r];
+                if(!row || row.length === 0) continue;
+                const v = normaliseTeamName(row[0]);
+                if(v) teams.push(v);
+              }
+              console.log("Loaded TEAMS sheet:", teams.length, "teams");
+              console.log("Teams list:", teams);
+            }
+          } catch(e){
+            console.log("TEAMS sheet not found (optional):", e.message);
+          }
 
-      return { competitors, teams, picks, points, maxGWs };
-      
-    } catch(err){
-      console.error("Error in fetchSheetData:", err);
-      throw err;
-    }
-  }
+          // If no teams, derive from picks
+          if(!teams.length){
+            const s = new Set();
+            for(const c of competitors){
+              Object.values(picks[c] || {}).forEach(t => {
+                const normalized = normaliseTeamName(t);
+                if(normalized) s.add(normalized);
+              });
+            }
+            teams = Array.from(s).sort((a,b)=>a.localeCompare(b));
+            console.log("Derived teams from picks:", teams.length);
+          }
 
-  function App(){
-    const [state, setState] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [route, setRoute] = useHashRoute();
-    const [lastUpdate, setLastUpdate] = useState(null);
-
-    useEffect(() => {
-      loadData();
-    }, []);
-
-    async function loadData(){
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchSheetData();
-        setState(data);
-        setLastUpdate(new Date().toLocaleTimeString());
-      } catch(err){
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if(loading){
-      return (
-        <div className="wrap">
-          <h1>EPL Picks Manager</h1>
-          <div className="card loading">
-            <div className="spinner"></div>
-            <p style={{marginTop: 20}}>Loading data from Google Sheets...</p>
-            <p className="muted">Check browser console (F12) for details</p>
-          </div>
-        </div>
-      );
-    }
-
-    if(error){
-      return (
-        <div className="wrap">
-          <h1>EPL Picks Manager</h1>
-          <div className="card">
-            <h2>Error Loading Data</h2>
-            <p className="bad">{error}</p>
-            <div className="muted" style={{marginTop: 12}}>
-              <p><strong>Required setup:</strong></p>
-              <ol>
-                <li>Open your Google Sheet: <a href={`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`} target="_blank" style={{textDecoration:"underline"}}>Open Sheet</a></li>
-                <li>Click the <strong>Share</strong> button (top right)</li>
-                <li>Under "General access", change from "Restricted" to <strong>"Anyone with the link"</strong></li>
-                <li>Make sure role is set to <strong>"Viewer"</strong></li>
-                <li>Click <strong>Done</strong></li>
-                <li>Wait a minute, then refresh this page</li>
-              </ol>
-              <p><strong>Sheet structure required:</strong></p>
-              <ul>
-                <li>Must have a sheet tab named <strong>PICKS</strong> (case matters)</li>
-                <li>First row must include: <code>Competitor</code> and <code>GW1</code>, <code>GW2</code>, etc.</li>
-                <li>Optional: <strong>POINTS</strong> and <strong>TEAMS</strong> sheets</li>
-              </ul>
-              <p style={{marginTop: 12}}>
-                <button className="primary" onClick={loadData}>Retry</button>
-              </p>
-              <p className="muted">Open browser console (F12) to see detailed error logs</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const { competitors, teams, picks, points, maxGWs } = state;
-
-    // Calculate usage statistics
-    const usageByCompetitorAndTeam = {};
-    for (const c of competitors) usageByCompetitorAndTeam[c] = {};
-    for (const c of competitors) for (const t of teams) usageByCompetitorAndTeam[c][t] = 0;
-
-    for (const c of competitors) {
-      const row = picks?.[c] || {};
-      for (let gw=1; gw<=maxGWs; gw++){
-        const t = normaliseTeamName(row[gw]);
-        if(t && usageByCompetitorAndTeam[c]?.[t] !== undefined) usageByCompetitorAndTeam[c][t] += 1;
-      }
-    }
-
-    const totalTeamUsage = {};
-    for (const t of teams) totalTeamUsage[t] = 0;
-    for (const c of competitors){
-      for (const t of teams){
-        totalTeamUsage[t] += (usageByCompetitorAndTeam[c]?.[t] || 0);
-      }
-    }
-
-    let leastUsedTeam = null;
-    let bestVal = Infinity;
-    for (const t of teams){
-      const v = totalTeamUsage[t] ?? 0;
-      if (v < bestVal) { bestVal = v; leastUsedTeam = t; }
-    }
-    const leastUsedTeamInfo = leastUsedTeam ? { team: leastUsedTeam, picks: bestVal } : null;
-
-    const totalsByCompetitor = {};
-    for (const c of competitors){
-      let sum = 0;
-      const row = points?.[c] || {};
-      for(let gw=1; gw<=maxGWs; gw++){
-        sum += toInt(row[gw]);
-      }
-      totalsByCompetitor[c] = sum;
-    }
-
-    const leaderboard = [...competitors]
-      .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
-      .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
-
-    function heatClass(val){
-      if(val <= 0) return "heat0";
-      if(val === 1) return "heat1";
-      return "heat2";
-    }
-
-    function TopBar(){
-      return (
-        <>
-          <h1>EPL Picks Manager</h1>
+          return { competitors, teams, picks, points, maxGWs };
           
-          <div className="readonly-banner">
-            🔒 Read-Only Mode • Data from Google Sheets • Last updated: {lastUpdate} • <a href="#" onClick={(e)=>{e.preventDefault(); loadData();}} style={{textDecoration:"underline"}}>Refresh</a>
-          </div>
+        } catch(err){
+          console.error("Error in fetchSheetData:", err);
+          throw err;
+        }
+      }
 
-          <div className="pill" style={{marginBottom: 10}}>
-            {leastUsedTeamInfo && (
-              <span className="badge">
-                Least used team: <b>{leastUsedTeamInfo.team}</b> ({leastUsedTeamInfo.picks} picks)
-              </span>
-            )}
-            <span className="badge">Rule: max <b>2</b> picks per team per competitor</span>
-          </div>
+      function App(){
+        const [state, setState] = useState(null);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState(null);
+        const [route, setRoute] = useHashRoute();
+        const [lastUpdate, setLastUpdate] = useState(null);
 
-          <div className="tabs">
-            <Tab label="Picks" route="/picks" current={route} setRoute={setRoute} />
-            <Tab label="Points" route="/points" current={route} setRoute={setRoute} />
-            <Tab label="Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
-            <Tab label="Usage Heatmap" route="/usage" current={route} setRoute={setRoute} />
-          </div>
-        </>
-      );
-    }
+        useEffect(() => {
+          loadData();
+        }, []);
 
-    function PicksPage(){
-      return (
-        <div className="card">
-          <h2>Picks (by Gameweek)</h2>
+        async function loadData(){
+          setLoading(true);
+          setError(null);
+          try {
+            const data = await fetchSheetData();
+            setState(data);
+            setLastUpdate(new Date().toLocaleTimeString());
+          } catch(err){
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        }
 
-          <div className="grid">
-            <table>
-              <thead>
-                <tr>
-                  <th className="sticky">Competitor</th>
-                  {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => (
-                    <th key={gw}>GW{gw}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {competitors.map(c => (
-                  <tr key={c}>
-                    <td className="sticky">{c}</td>
-                    {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => {
-                      const team = picks?.[c]?.[gw] || "—";
-                      return <td key={gw}>{team}</td>;
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        if(loading){
+          return (
+            <div className="wrap">
+              <h1>EPL Picks Manager</h1>
+              <div className="card loading">
+                <div className="spinner"></div>
+                <p style={{marginTop: 20}}>Loading data from Google Sheets...</p>
+                <p className="muted">Check browser console (F12) for details</p>
+              </div>
+            </div>
+          );
+        }
 
-          <div className="muted" style={{marginTop:10}}>
-            Tip: On iPhone, rotate to landscape for easier scrolling.
-          </div>
-        </div>
-      );
-    }
+        if(error){
+          return (
+            <div className="wrap">
+              <h1>EPL Picks Manager</h1>
+              <div className="card">
+                <h2>Error Loading Data</h2>
+                <p className="bad">{error}</p>
+                <div className="muted" style={{marginTop: 12}}>
+                  <p><strong>Required setup:</strong></p>
+                  <ol>
+                    <li>Open your Google Sheet: <a href={`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`} target="_blank" style={{textDecoration:"underline"}}>Open Sheet</a></li>
+                    <li>Click the <strong>Share</strong> button (top right)</li>
+                    <li>Under "General access", change from "Restricted" to <strong>"Anyone with the link"</strong></li>
+                    <li>Make sure role is set to <strong>"Viewer"</strong></li>
+                    <li>Click <strong>Done</strong></li>
+                    <li>Wait a minute, then refresh this page</li>
+                  </ol>
+                  <p><strong>Sheet structure required:</strong></p>
+                  <ul>
+                    <li>Must have a sheet tab named <strong>PICKS</strong> (case matters)</li>
+                    <li>First row must include: <code>Competitor</code> and <code>GW1</code>, <code>GW2</code>, etc.</li>
+                    <li>Optional: <strong>POINTS</strong> and <strong>TEAMS</strong> sheets</li>
+                  </ul>
+                  <p style={{marginTop: 12}}>
+                    <button className="primary" onClick={loadData}>Retry</button>
+                  </p>
+                  <p className="muted">Open browser console (F12) to see detailed error logs</p>
+                </div>
+              </div>
+            </div>
+          );
+        }
 
-    function PointsPage(){
-      return (
-        <div className="card">
-          <h2>Points (by Gameweek)</h2>
+        const { competitors, teams, picks, points, maxGWs } = state;
 
-          <div className="grid">
-            <table>
-              <thead>
-                <tr>
-                  <th className="sticky">Competitor</th>
-                  {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => (
-                    <th key={gw}>GW{gw}</th>
-                  ))}
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {competitors.map(c => (
-                  <tr key={c}>
-                    <td className="sticky">{c}</td>
-                    {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => {
-                      const pts = points?.[c]?.[gw] || "";
-                      return <td key={gw} className="right">{pts}</td>;
-                    })}
-                    <td className="right"><b>{totalsByCompetitor[c] || 0}</b></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
+        // Calculate usage statistics
+        const usageByCompetitorAndTeam = {};
+        for (const c of competitors) usageByCompetitorAndTeam[c] = {};
+        for (const c of competitors) for (const t of teams) usageByCompetitorAndTeam[c][t] = 0;
 
-    function LeaderboardPage(){
-      return (
-        <div className="card">
-          <h2>Leaderboard</h2>
-          <div className="grid">
-            <table>
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Competitor</th>
-                  <th className="right">Total Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaderboard.map((r, idx) => (
-                  <tr key={r.competitor}>
-                    <td>{idx+1}</td>
-                    <td><b>{r.competitor}</b></td>
-                    <td className="right"><b>{r.totalPoints}</b></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
+        for (const c of competitors) {
+          const row = picks?.[c] || {};
+          for (let gw=1; gw<=maxGWs; gw++){
+            const t = normaliseTeamName(row[gw]);
+            if(t && usageByCompetitorAndTeam[c]?.[t] !== undefined) usageByCompetitorAndTeam[c][t] += 1;
+          }
+        }
 
-    function UsagePage(){
-      return (
-        <div className="card">
-          <h2>Usage Heatmap (0/1/2)</h2>
-          <div className="muted" style={{marginBottom:10}}>
-            Green = 0 used, Amber = 1 used, Red = 2 used (maxed out). Showing {teams.length} teams.
-          </div>
-          <div className="grid">
-            <table>
-              <thead>
-                <tr>
-                  <th className="sticky">Team</th>
-                  {competitors.map(c => <th key={c}>{c}</th>)}
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map(team => {
-                  const total = (totalTeamUsage[team] ?? 0);
-                  return (
-                    <tr key={team}>
-                      <td className="sticky">{team}</td>
-                      {competitors.map(c => {
-                        const v = usageByCompetitorAndTeam?.[c]?.[team] || 0;
-                        return (
-                          <td key={c} className={heatClass(v)} style={{textAlign:"center", fontWeight:800}}>
-                            {v}
-                          </td>
-                        );
-                      })}
-                      <td style={{textAlign:"center"}}>{total}</td>
+        const totalTeamUsage = {};
+        for (const t of teams) totalTeamUsage[t] = 0;
+        for (const c of competitors){
+          for (const t of teams){
+            totalTeamUsage[t] += (usageByCompetitorAndTeam[c]?.[t] || 0);
+          }
+        }
+
+        let leastUsedTeam = null;
+        let bestVal = Infinity;
+        for (const t of teams){
+          const v = totalTeamUsage[t] ?? 0;
+          if (v < bestVal) { bestVal = v; leastUsedTeam = t; }
+        }
+        const leastUsedTeamInfo = leastUsedTeam ? { team: leastUsedTeam, picks: bestVal } : null;
+
+        const totalsByCompetitor = {};
+        for (const c of competitors){
+          let sum = 0;
+          const row = points?.[c] || {};
+          for(let gw=1; gw<=maxGWs; gw++){
+            sum += toInt(row[gw]);
+          }
+          totalsByCompetitor[c] = sum;
+        }
+
+        const leaderboard = [...competitors]
+          .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
+          .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
+
+        // Calculate leaderboard history by GW
+        const leaderboardHistory = useMemo(() => {
+          const history = [];
+          
+          for(let gw=1; gw<=maxGWs; gw++){
+            // Calculate cumulative points up to this GW
+            const standings = competitors.map(c => {
+              let cumulativePoints = 0;
+              for(let week=1; week<=gw; week++){
+                cumulativePoints += toInt(points?.[c]?.[week]);
+              }
+              return { competitor: c, points: cumulativePoints };
+            });
+            
+            // Sort by points (descending), then alphabetically
+            standings.sort((a,b) => b.points - a.points || a.competitor.localeCompare(b.competitor));
+            
+            // Assign ranks
+            const rankedStandings = standings.map((s, idx) => ({
+              ...s,
+              rank: idx + 1
+            }));
+            
+            history.push({ gw, standings: rankedStandings });
+          }
+          
+          return history;
+        }, [competitors, points, maxGWs]);
+
+        function heatClass(val){
+          if(val <= 0) return "heat0";
+          if(val === 1) return "heat1";
+          return "heat2";
+        }
+
+        function TopBar(){
+          return (
+            <>
+              <h1>EPL Picks Manager</h1>
+              
+              <div className="readonly-banner">
+                🔒 Read-Only Mode • Data from Google Sheets • Last updated: {lastUpdate} • <a href="#" onClick={(e)=>{e.preventDefault(); loadData();}} style={{textDecoration:"underline"}}>Refresh</a>
+              </div>
+
+              <div className="pill" style={{marginBottom: 10}}>
+                {leastUsedTeamInfo && (
+                  <span className="badge">
+                    Least used team: <b>{leastUsedTeamInfo.team}</b> ({leastUsedTeamInfo.picks} picks)
+                  </span>
+                )}
+                <span className="badge">Rule: max <b>2</b> picks per team per competitor</span>
+              </div>
+
+              <div className="tabs">
+                <Tab label="Picks" route="/picks" current={route} setRoute={setRoute} />
+                <Tab label="Points" route="/points" current={route} setRoute={setRoute} />
+                <Tab label="Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
+                <Tab label="Leaderboard History" route="/history" current={route} setRoute={setRoute} />
+                <Tab label="Usage Heatmap" route="/usage" current={route} setRoute={setRoute} />
+              </div>
+            </>
+          );
+        }
+
+        function PicksPage(){
+          return (
+            <div className="card">
+              <h2>Picks (by Gameweek)</h2>
+
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Competitor</th>
+                      {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => (
+                        <th key={gw}>GW{gw}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {competitors.map(c => (
+                      <tr key={c}>
+                        <td className="sticky">{c}</td>
+                        {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => {
+                          const team = picks?.[c]?.[gw] || "—";
+                          return <td key={gw}>{team}</td>;
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="muted" style={{marginTop:10}}>
+                Tip: On iPhone, rotate to landscape for easier scrolling.
+              </div>
+            </div>
+          );
+        }
+
+        function PointsPage(){
+          return (
+            <div className="card">
+              <h2>Points (by Gameweek)</h2>
+
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Competitor</th>
+                      {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => (
+                        <th key={gw}>GW{gw}</th>
+                      ))}
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitors.map(c => (
+                      <tr key={c}>
+                        <td className="sticky">{c}</td>
+                        {Array.from({length:maxGWs}, (_,i)=>i+1).map(gw => {
+                          const pts = points?.[c]?.[gw] || "";
+                          return <td key={gw} className="right">{pts}</td>;
+                        })}
+                        <td className="right"><b>{totalsByCompetitor[c] || 0}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
+        function LeaderboardPage(){
+          return (
+            <div className="card">
+              <h2>Leaderboard</h2>
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Competitor</th>
+                      <th className="right">Total Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map((r, idx) => (
+                      <tr key={r.competitor}>
+                        <td>{idx+1}</td>
+                        <td><b>{r.competitor}</b></td>
+                        <td className="right"><b>{r.totalPoints}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
+        function LeaderboardHistoryPage(){
+          // Filter to only show GWs with at least some data
+          const gwsWithData = leaderboardHistory.filter(h => 
+            h.standings.some(s => s.points > 0)
+          );
+
+          return (
+            <div className="card">
+              <h2>Leaderboard Position History</h2>
+              <div className="muted" style={{marginBottom:10}}>
+                Shows leaderboard position (rank) for each competitor after each gameweek. 
+                Colors highlight top 3 positions.
+              </div>
+
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Competitor</th>
+                      {gwsWithData.map(h => (
+                        <th key={h.gw} className="center">GW{h.gw}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitors.map(c => {
+                      return (
+                        <tr key={c}>
+                          <td className="sticky">{c}</td>
+                          {gwsWithData.map((h, gwIdx) => {
+                            const standing = h.standings.find(s => s.competitor === c);
+                            const rank = standing?.rank || "—";
+                            const points = standing?.points || 0;
+                            
+                            // Get previous rank for change indicator
+                            let prevRank = null;
+                            if(gwIdx > 0){
+                              const prevStanding = gwsWithData[gwIdx - 1].standings.find(s => s.competitor === c);
+                              prevRank = prevStanding?.rank;
+                            }
+                            
+                            let changeIndicator = "";
+                            let changeClass = "";
+                            if(prevRank !== null && rank !== "—"){
+                              const change = prevRank - rank;
+                              if(change > 0){
+                                changeIndicator = ` ↑${change}`;
+                                changeClass = "rank-up";
+                              } else if(change < 0){
+                                changeIndicator = ` ↓${Math.abs(change)}`;
+                                changeClass = "rank-down";
+                              } else {
+                                changeIndicator = " ─";
+                                changeClass = "rank-same";
+                              }
+                            }
+                            
+                            let className = "center";
+                            if(rank === 1) className += " rank-1";
+                            else if(rank === 2) className += " rank-2";
+                            else if(rank === 3) className += " rank-3";
+                            
+                            return (
+                              <td key={h.gw} className={className} title={`${points} pts`}>
+                                <div>
+                                  <span style={{fontWeight: rank <= 3 ? 800 : 600}}>{rank}</span>
+                                  {changeIndicator && (
+                                    <span className={changeClass} style={{fontSize: 10, marginLeft: 2}}>
+                                      {changeIndicator}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="muted" style={{marginTop:10}}>
+                <div>🥇 Gold = 1st place, 🥈 Silver = 2nd place, 🥉 Bronze = 3rd place</div>
+                <div>Hover over a rank to see the points total at that gameweek</div>
+                <div>↑ = moved up, ↓ = moved down, ─ = same position</div>
+              </div>
+            </div>
+          );
+        }
+
+        function UsagePage(){
+          return (
+            <div className="card">
+              <h2>Usage Heatmap (0/1/2)</h2>
+              <div className="muted" style={{marginBottom:10}}>
+                Green = 0 used, Amber = 1 used, Red = 2 used (maxed out). Showing {teams.length} teams.
+              </div>
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Team</th>
+                      {competitors.map(c => <th key={c}>{c}</th>)}
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teams.map(team => {
+                      const total = (totalTeamUsage[team] ?? 0);
+                      return (
+                        <tr key={team}>
+                          <td className="sticky">{team}</td>
+                          {competitors.map(c => {
+                            const v = usageByCompetitorAndTeam?.[c]?.[team] || 0;
+                            return (
+                              <td key={c} className={heatClass(v)} style={{textAlign:"center", fontWeight:800}}>
+                                {v}
+                              </td>
+                            );
+                          })}
+                          <td style={{textAlign:"center"}}>{total}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        }
+
+        function NotFound(){
+          return (
+            <div className="card">
+              <h2>Page not found</h2>
+              <div className="muted">Use the tabs above.</div>
+            </div>
+          );
+        }
+
+        let page = null;
+        if(route === "/picks") page = <PicksPage />;
+        else if(route === "/points") page = <PointsPage />;
+        else if(route === "/leaderboard") page = <LeaderboardPage />;
+        else if(route === "/history") page = <LeaderboardHistoryPage />;
+        else if(route === "/usage") page = <UsagePage />;
+        else page = <NotFound />;
+
+        return (
+          <div className="wrap">
+            <TopBar />
+            {page}
           </div>
-        </div>
-      );
-    }
+        );
+      }
 
-    function NotFound(){
-      return (
-        <div className="card">
-          <h2>Page not found</h2>
-          <div className="muted">Use the tabs above.</div>
-        </div>
-      );
-    }
-
-    let page = null;
-    if(route === "/picks") page = <PicksPage />;
-    else if(route === "/points") page = <PointsPage />;
-    else if(route === "/leaderboard") page = <LeaderboardPage />;
-    else if(route === "/usage") page = <UsagePage />;
-    else page = <NotFound />;
-
-    return (
-      <div className="wrap">
-        <TopBar />
-        {page}
-      </div>
-    );
-  }
-
-  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-</script>
-```
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
 
   </body>
 </html>
