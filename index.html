@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>EPL Picks Manager</title>
 
+```
 <!-- React (no build step) -->
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -82,7 +83,6 @@
 <script type="text/babel">
   const { useEffect, useMemo, useState } = React;
 
-  // Your Google Sheets ID
   const SHEET_ID = "1x9gMQl64X4WcR4yoLznln3CWUoqbtddg4xM7rUWBCwY";
 
   function normaliseTeamName(name){
@@ -102,19 +102,15 @@
       window.addEventListener("hashchange", onHash);
       return () => window.removeEventListener("hashchange", onHash);
     }, []);
-    return [route, (r) => { window.location.hash = "#" + r; }];
+    return [route, (r) => window.location.hash = "#" + r];
   }
 
   function Tab({label, route, current, setRoute}){
     const active = current === route;
-    return React.createElement(
-      "a",
-      {
-        className: "tab" + (active ? " active" : ""),
-        href: "#" + route,
-        onClick: (e) => { e.preventDefault(); setRoute(route); }
-      },
-      label
+    return (
+      <a className={"tab" + (active ? " active" : "")} href={"#" + route} onClick={(e)=>{e.preventDefault(); setRoute(route);}}>
+        {label}
+      </a>
     );
   }
 
@@ -387,31 +383,6 @@
       .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
       .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
 
-    const leaderboardHistory = useMemo(() => {
-      const history = [];
-      
-      for(let gw=1; gw<=maxGWs; gw++){
-        const standings = competitors.map(c => {
-          let cumulativePoints = 0;
-          for(let week=1; week<=gw; week++){
-            cumulativePoints += toInt(points?.[c]?.[week]);
-          }
-          return { competitor: c, points: cumulativePoints };
-        });
-        
-        standings.sort((a,b) => b.points - a.points || a.competitor.localeCompare(b.competitor));
-        
-        const rankedStandings = standings.map((s, idx) => ({
-          ...s,
-          rank: idx + 1
-        }));
-        
-        history.push({ gw, standings: rankedStandings });
-      }
-      
-      return history;
-    }, [competitors, points, maxGWs]);
-
     function heatClass(val){
       if(val <= 0) return "heat0";
       if(val === 1) return "heat1";
@@ -440,7 +411,7 @@
             <Tab label="Picks" route="/picks" current={route} setRoute={setRoute} />
             <Tab label="Points" route="/points" current={route} setRoute={setRoute} />
             <Tab label="Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
-            <Tab label="Leaderboard History" route="/history" current={route} setRoute={setRoute} />
+            <Tab label="History" route="/history" current={route} setRoute={setRoute} />
             <Tab label="Usage Heatmap" route="/usage" current={route} setRoute={setRoute} />
           </div>
         </>
@@ -546,7 +517,29 @@
     }
 
     function LeaderboardHistoryPage(){
-      const gwsWithData = leaderboardHistory.filter(h => 
+      // Calculate leaderboard history
+      const history = [];
+      
+      for(let gw=1; gw<=maxGWs; gw++){
+        const standings = competitors.map(c => {
+          let cumulativePoints = 0;
+          for(let week=1; week<=gw; week++){
+            cumulativePoints += toInt(points?.[c]?.[week]);
+          }
+          return { competitor: c, points: cumulativePoints };
+        });
+        
+        standings.sort((a,b) => b.points - a.points || a.competitor.localeCompare(b.competitor));
+        
+        const rankedStandings = standings.map((s, idx) => ({
+          ...s,
+          rank: idx + 1
+        }));
+        
+        history.push({ gw, standings: rankedStandings });
+      }
+
+      const gwsWithData = history.filter(h => 
         h.standings.some(s => s.points > 0)
       );
 
@@ -575,13 +568,13 @@
                       <td className="sticky">{c}</td>
                       {gwsWithData.map((h, gwIdx) => {
                         const standing = h.standings.find(s => s.competitor === c);
-                        const rank = standing?.rank || "—";
-                        const points = standing?.points || 0;
+                        const rank = standing ? standing.rank : "—";
+                        const points = standing ? standing.points : 0;
                         
                         let prevRank = null;
                         if(gwIdx > 0){
                           const prevStanding = gwsWithData[gwIdx - 1].standings.find(s => s.competitor === c);
-                          prevRank = prevStanding?.rank;
+                          prevRank = prevStanding ? prevStanding.rank : null;
                         }
                         
                         let changeIndicator = "";
@@ -702,6 +695,7 @@
 
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
+```
 
   </body>
 </html>
