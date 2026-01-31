@@ -93,10 +93,12 @@
   .export-btn { margin-top: 12px; }
 </style>
 
+
   </head>
 
   <body>
     <div id="root"></div>
+
 
 <script type="text/babel">
   const { useEffect, useRef, useState } = React;
@@ -110,6 +112,17 @@
   function toInt(val){
     const n = parseInt((val ?? "").toString(), 10);
     return Number.isFinite(n) ? n : 0;
+  }
+
+  // Assigns standard competition ranks (1,1,3…) to an already-sorted-descending array.
+  // Each item must have a numeric `points` property.  Returns new array with `rank` added.
+  function assignRanks(sorted){
+    return sorted.map((item, idx) => {
+      let rank;
+      if(idx === 0) rank = 1;
+      else rank = sorted[idx-1].points === item.points ? sorted[idx-1].rank : idx + 1;
+      return { ...item, rank };
+    });
   }
 
   function useHashRoute(){
@@ -382,9 +395,11 @@
       totalsByCompetitor[c] = sum;
     }
 
-    const leaderboard = [...competitors]
-      .map(c => ({ competitor: c, totalPoints: totalsByCompetitor[c] || 0 }))
-      .sort((a,b) => b.totalPoints - a.totalPoints || a.competitor.localeCompare(b.competitor));
+    const leaderboard = assignRanks(
+      [...competitors]
+        .map(c => ({ competitor: c, points: totalsByCompetitor[c] || 0 }))
+        .sort((a,b) => b.points - a.points || a.competitor.localeCompare(b.competitor))
+    ).map(item => ({ ...item, totalPoints: item.points }));
 
     // Team performance analytics
     const teamPerformance = {};
@@ -505,12 +520,18 @@
         }
       }
 
-      // Ties
-      const ties = [];
-      for(let i=0; i<leaderboard.length-1; i++){
-        if(leaderboard[i].totalPoints === leaderboard[i+1].totalPoints){
-          ties.push(`${leaderboard[i].competitor} & ${leaderboard[i+1].competitor}`);
+      // Ties — group every set of 2+ competitors that share the same points
+      const tieGroups = [];
+      let i = 0;
+      while(i < leaderboard.length){
+        let j = i;
+        while(j < leaderboard.length && leaderboard[j].totalPoints === leaderboard[i].totalPoints) j++;
+        if(j - i > 1){
+          const names = leaderboard.slice(i, j).map(r => r.competitor);
+          const rankLabel = leaderboard[i].rank === 1 ? '1st' : leaderboard[i].rank === 2 ? '2nd' : leaderboard[i].rank === 3 ? '3rd' : `${leaderboard[i].rank}th`;
+          tieGroups.push({ rankLabel, names, points: leaderboard[i].totalPoints });
         }
+        i = j;
       }
 
       return (
@@ -519,16 +540,30 @@
             <h2>🏆 Current Standings</h2>
             <div className="highlight-box">
               <div style={{fontSize: 18, marginBottom: 8}}>
-                <strong>1st Place: {leader?.competitor}</strong> with <span className="ok">{leader?.totalPoints} points</span>
+                {leaderboard.length > 1 && leaderboard[0].totalPoints === leaderboard[1].totalPoints ? (
+                  <>
+                    <strong>Joint 1st Place:</strong>{' '}
+                    <span className="ok">
+                      {leaderboard.filter(r => r.totalPoints === leaderboard[0].totalPoints).map(r => r.competitor).join(', ')}
+                    </span>
+                    {' '}with <span className="ok">{leaderboard[0].totalPoints} points</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>1st Place: {leader?.competitor}</strong> with <span className="ok">{leader?.totalPoints} points</span>
+                  </>
+                )}
               </div>
               {gap > 0 && (
                 <div className="muted">
                   Leading by {gap} point{gap !== 1 ? 's' : ''} over {second?.competitor}
                 </div>
               )}
-              {ties.length > 0 && (
+              {tieGroups.length > 0 && (
                 <div className="warn" style={{marginTop: 8}}>
-                  ⚠️ Tied: {ties.join(', ')}
+                  {tieGroups.map((g, idx) => (
+                    <div key={idx}>⚠️ Joint {g.rankLabel}: {g.names.join(', ')} ({g.points} pts)</div>
+                  ))}
                 </div>
               )}
             </div>
@@ -570,12 +605,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {leaderboard.map((r, idx) => {
+                  {leaderboard.map((r) => {
                     const avgWeek = currentGW > 0 ? (r.totalPoints / currentGW).toFixed(1) : 0;
                     const lastWeek = currentGW > 0 ? toInt(points?.[r.competitor]?.[currentGW]) : 0;
                     return (
                       <tr key={r.competitor}>
-                        <td>{idx+1}</td>
+                        <td>{r.rank}</td>
                         <td><b>{r.competitor}</b></td>
                         <td className="right"><b>{r.totalPoints}</b></td>
                         <td className="right">{avgWeek}</td>
@@ -674,13 +709,37 @@
     function WeeklyPointsPage(){
       const [selectedGW, setSelectedGW] = useState(currentGW || 1);
 
-      const weekData = competitors.map(c => ({
-        competitor: c,
-        points: toInt(points?.[c]?.[selectedGW])
-      })).sort((a,b) => b.points - a.points);
+      // For each team picked this GW, figure out if the team has played.
+      // A team is considered "played" if at least one competitor who picked
+      // that team in this GW has a points value recorded (including 0 explicitly set).
+      // We treat it as "not played" only when NO competitor who picked that team has
+      // any points value AND the current GW points aren't in yet for anyone picking it.
+      function hasTeamPlayed(team, gw){
+        // If this GW is beyond currentGW, definitely not played
+        if(gw > currentGW) return false;
+        // Check: does any competitor who picked this team in this GW have points data?
+        for(const c of competitors){
+          if(picks?.[c]?.[gw] === team){
+            // points sheet has an entry for this competitor this GW
+            if(points?.[c]?.[gw] !== undefined && points?.[c]?.[gw] !== null) return true;
+          }
+        }
+        // Fallback: if the GW < currentGW it has definitely been played
+        if(gw < currentGW) return true;
+        return false;
+      }
 
-      const bestThisWeek = weekData[0];
-      const worstThisWeek = weekData[weekData.length - 1];
+      const weekData = competitors.map(c => {
+        const team = picks?.[c]?.[selectedGW] || null;
+        const pts = toInt(points?.[c]?.[selectedGW]);
+        const played = team ? hasTeamPlayed(team, selectedGW) : false;
+        return { competitor: c, team, points: pts, played };
+      }).sort((a,b) => b.points - a.points);
+
+      // Only count competitors whose team has played for best/worst
+      const playedData = weekData.filter(d => d.played);
+      const bestThisWeek = playedData[0] || null;
+      const worstThisWeek = playedData[playedData.length - 1] || null;
 
       return (
         <div className="card">
@@ -697,11 +756,16 @@
 
           <div className="highlight-box">
             <div>
-              <span className="ok">🏆 Best: {bestThisWeek?.competitor}</span> ({bestThisWeek?.points} pts)
+              <span className="ok">🏆 Best: {bestThisWeek?.competitor}</span> ({bestThisWeek?.points} pts — {bestThisWeek?.team})
             </div>
             <div style={{marginTop: 4}}>
-              <span className="bad">📉 Worst: {worstThisWeek?.competitor}</span> ({worstThisWeek?.points} pts)
+              <span className="bad">📉 Worst: {worstThisWeek?.competitor}</span> ({worstThisWeek?.points} pts — {worstThisWeek?.team})
             </div>
+            {playedData.length < weekData.length && (
+              <div className="warn" style={{marginTop: 4}}>
+                ⏳ {weekData.length - playedData.length} team{weekData.length - playedData.length !== 1 ? 's' : ''} yet to play
+              </div>
+            )}
           </div>
 
           <div className="grid">
@@ -711,6 +775,7 @@
                   <th>Rank</th>
                   <th>Competitor</th>
                   <th>Team Picked</th>
+                  <th>Status</th>
                   <th className="right">Points</th>
                 </tr>
               </thead>
@@ -719,8 +784,14 @@
                   <tr key={r.competitor}>
                     <td>{idx + 1}</td>
                     <td><b>{r.competitor}</b></td>
-                    <td>{picks?.[r.competitor]?.[selectedGW] || '—'}</td>
-                    <td className="right">{r.points}</td>
+                    <td>{r.team || '—'}</td>
+                    <td>
+                      {r.played
+                        ? <span className="ok">✅ Played</span>
+                        : <span className="warn">⏳ Pending</span>
+                      }
+                    </td>
+                    <td className="right">{r.played ? r.points : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -756,9 +827,9 @@
                 </tr>
               </thead>
               <tbody>
-                {leaderboard.map((r, idx) => (
+                {leaderboard.map((r) => (
                   <tr key={r.competitor}>
-                    <td>{idx+1}</td>
+                    <td>{r.rank}</td>
                     <td><b>{r.competitor}</b></td>
                     <td className="right"><b>{r.totalPoints}</b></td>
                   </tr>
@@ -768,8 +839,8 @@
           </div>
 
           <button className="primary export-btn" onClick={() => {
-            const data = leaderboard.map((r, idx) => ({
-              Rank: idx + 1,
+            const data = leaderboard.map((r) => ({
+              Rank: r.rank,
               Competitor: r.competitor,
               TotalPoints: r.totalPoints
             }));
@@ -800,10 +871,7 @@
         
         standings.sort((a,b) => b.points - a.points || a.competitor.localeCompare(b.competitor));
         
-        const rankedStandings = standings.map((s, idx) => ({
-          ...s,
-          rank: idx + 1
-        }));
+        const rankedStandings = assignRanks(standings);
         
         history.push({ gw, standings: rankedStandings });
       }
@@ -1235,12 +1303,23 @@
 
     function PredictionsPage(){
       const remainingGWs = maxGWs - (currentGW || 0);
+
+      // Derive the actual highest single-week score seen in the data
+      let highestWeeklyScore = 0;
+      for(const c of competitors){
+        for(let gw=1; gw<=currentGW; gw++){
+          const pts = toInt(points?.[c]?.[gw]);
+          if(pts > highestWeeklyScore) highestWeeklyScore = pts;
+        }
+      }
+      // If no data at all, fall back to a reasonable default
+      if(highestWeeklyScore === 0) highestWeeklyScore = 10;
       
       const projections = competitors.map(c => {
         const currentTotal = totalsByCompetitor[c] || 0;
         const avgPerWeek = currentGW > 0 ? currentTotal / currentGW : 0;
         const projected = currentTotal + (avgPerWeek * remainingGWs);
-        const maxPossible = currentTotal + (20 * remainingGWs); // Assume max 20 pts/week
+        const maxPossible = currentTotal + (highestWeeklyScore * remainingGWs);
         
         return {
           competitor: c,
@@ -1315,8 +1394,10 @@
             </div>
           </div>
 
-          <div className="card">
-            <h2>📋 Remaining Picks Available</h2>
+          <div className="muted" style={{marginTop: 8}}>
+            📌 "Max Possible" assumes every remaining week scores the season-best weekly score ({highestWeeklyScore} pts).  
+            "Projected Final" assumes each competitor continues at their current average.
+          </div>
             <div className="muted" style={{marginBottom:10}}>
               Shows how many times each competitor can still pick each team (max 2 per team).
             </div>
@@ -1383,7 +1464,7 @@
 
   ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
-
+``
 
   </body>
 </html>
