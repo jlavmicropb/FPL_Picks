@@ -17,6 +17,9 @@
 <!-- PapaParse for CSV -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
+<!-- Chart.js for line graph -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <style>
   :root { --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#9fb0d0; --line:#233458; --accent:#1b3bff; }
   body { margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
@@ -33,6 +36,7 @@
   button { cursor:pointer; }
   button.primary { background:var(--accent); border-color:var(--accent); }
   button.danger { background:#a31616; border-color:#a31616; }
+  button.small { padding: 6px 12px; font-size: 12px; }
   .muted { color: var(--muted); font-size: 12px; }
   .grid { overflow:auto; max-width: 100%; border-radius: 12px; border:1px solid var(--line); }
   table { border-collapse: collapse; width: max-content; min-width: 100%; }
@@ -71,6 +75,8 @@
   .rank-up { color: #7CFFB2; }
   .rank-down { color: #FF8C8C; }
   .rank-same { color: var(--muted); }
+  .chart-container { position: relative; height: 400px; margin: 20px 0; }
+  .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
 </style>
 ```
 
@@ -81,7 +87,7 @@
 
 ```
 <script type="text/babel">
-  const { useEffect, useMemo, useState } = React;
+  const { useEffect, useRef, useState } = React;
 
   const SHEET_ID = "1x9gMQl64X4WcR4yoLznln3CWUoqbtddg4xM7rUWBCwY";
 
@@ -267,7 +273,23 @@
         console.log("Derived teams from picks:", teams.length);
       }
 
-      return { competitors, teams, picks, points, maxGWs };
+      // Determine current gameweek (last GW with any points data)
+      let currentGW = 0;
+      for(let gw=1; gw<=maxGWs; gw++){
+        let hasData = false;
+        for(const c of competitors){
+          if(toInt(points?.[c]?.[gw]) > 0){
+            hasData = true;
+            break;
+          }
+        }
+        if(hasData){
+          currentGW = gw;
+        }
+      }
+      console.log("Current gameweek detected:", currentGW);
+
+      return { competitors, teams, picks, points, maxGWs, currentGW };
       
     } catch(err){
       console.error("Error in fetchSheetData:", err);
@@ -339,7 +361,7 @@
       );
     }
 
-    const { competitors, teams, picks, points, maxGWs } = state;
+    const { competitors, teams, picks, points, maxGWs, currentGW } = state;
 
     const usageByCompetitorAndTeam = {};
     for (const c of competitors) usageByCompetitorAndTeam[c] = {};
@@ -395,7 +417,7 @@
           <h1>EPL Picks Manager</h1>
           
           <div className="readonly-banner">
-            🔒 Read-Only Mode • Data from Google Sheets • Last updated: {lastUpdate} • <a href="#" onClick={(e)=>{e.preventDefault(); loadData();}} style={{textDecoration:"underline"}}>Refresh</a>
+            🔒 Read-Only Mode • Data from Google Sheets • Last updated: {lastUpdate} • Current GW: {currentGW} • <a href="#" onClick={(e)=>{e.preventDefault(); loadData();}} style={{textDecoration:"underline"}}>Refresh</a>
           </div>
 
           <div className="pill" style={{marginBottom: 10}}>
@@ -411,7 +433,7 @@
             <Tab label="Picks" route="/picks" current={route} setRoute={setRoute} />
             <Tab label="Points" route="/points" current={route} setRoute={setRoute} />
             <Tab label="Leaderboard" route="/leaderboard" current={route} setRoute={setRoute} />
-            <Tab label="History" route="/history" current={route} setRoute={setRoute} />
+            <Tab label="Leaderboard History" route="/history" current={route} setRoute={setRoute} />
             <Tab label="Usage Heatmap" route="/usage" current={route} setRoute={setRoute} />
           </div>
         </>
@@ -517,10 +539,15 @@
     }
 
     function LeaderboardHistoryPage(){
-      // Calculate leaderboard history
+      const [viewMode, setViewMode] = useState('graph');
+      const chartRef = useRef(null);
+      const chartInstanceRef = useRef(null);
+
+      // Calculate leaderboard history up to current GW
+      const effectiveGW = currentGW || maxGWs;
       const history = [];
       
-      for(let gw=1; gw<=maxGWs; gw++){
+      for(let gw=1; gw<=effectiveGW; gw++){
         const standings = competitors.map(c => {
           let cumulativePoints = 0;
           for(let week=1; week<=gw; week++){
@@ -543,86 +570,229 @@
         h.standings.some(s => s.points > 0)
       );
 
+      // Generate colors for each competitor
+      const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+        '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+      ];
+
+      useEffect(() => {
+        if(viewMode === 'graph' && chartRef.current && gwsWithData.length > 0){
+          // Destroy existing chart
+          if(chartInstanceRef.current){
+            chartInstanceRef.current.destroy();
+          }
+
+          const ctx = chartRef.current.getContext('2d');
+          
+          // Prepare data for chart
+          const labels = gwsWithData.map(h => `GW${h.gw}`);
+          const datasets = competitors.map((c, idx) => {
+            const data = gwsWithData.map(h => {
+              const standing = h.standings.find(s => s.competitor === c);
+              return standing ? standing.rank : null;
+            });
+            
+            return {
+              label: c,
+              data: data,
+              borderColor: colors[idx % colors.length],
+              backgroundColor: colors[idx % colors.length] + '20',
+              tension: 0.1,
+              pointRadius: 3,
+              pointHoverRadius: 5
+            };
+          });
+
+          chartInstanceRef.current = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    color: '#e7eefc',
+                    padding: 10,
+                    font: {
+                      size: 11
+                    }
+                  }
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  callbacks: {
+                    label: function(context) {
+                      return context.dataset.label + ': ' + context.parsed.y + (context.parsed.y === 1 ? 'st' : context.parsed.y === 2 ? 'nd' : context.parsed.y === 3 ? 'rd' : 'th');
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  reverse: true,
+                  beginAtZero: false,
+                  ticks: {
+                    stepSize: 1,
+                    color: '#9fb0d0',
+                    callback: function(value) {
+                      return value + (value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th');
+                    }
+                  },
+                  grid: {
+                    color: '#233458'
+                  },
+                  title: {
+                    display: true,
+                    text: 'Position',
+                    color: '#9fb0d0'
+                  }
+                },
+                x: {
+                  ticks: {
+                    color: '#9fb0d0'
+                  },
+                  grid: {
+                    color: '#233458'
+                  },
+                  title: {
+                    display: true,
+                    text: 'Gameweek',
+                    color: '#9fb0d0'
+                  }
+                }
+              },
+              interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+              }
+            }
+          });
+        }
+
+        return () => {
+          if(chartInstanceRef.current){
+            chartInstanceRef.current.destroy();
+          }
+        };
+      }, [viewMode, gwsWithData]);
+
       return (
         <div className="card">
-          <h2>Leaderboard Position History</h2>
-          <div className="muted" style={{marginBottom:10}}>
-            Shows leaderboard position (rank) for each competitor after each gameweek. 
-            Colors highlight top 3 positions.
+          <h2>Leaderboard Position History (GW 1 - {effectiveGW})</h2>
+          
+          <div className="view-toggle">
+            <button 
+              className={viewMode === 'graph' ? 'primary small' : 'small'}
+              onClick={() => setViewMode('graph')}
+            >
+              📈 Graph View
+            </button>
+            <button 
+              className={viewMode === 'table' ? 'primary small' : 'small'}
+              onClick={() => setViewMode('table')}
+            >
+              📊 Table View
+            </button>
           </div>
 
-          <div className="grid">
-            <table>
-              <thead>
-                <tr>
-                  <th className="sticky">Competitor</th>
-                  {gwsWithData.map(h => (
-                    <th key={h.gw} className="center">GW{h.gw}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {competitors.map(c => {
-                  return (
-                    <tr key={c}>
-                      <td className="sticky">{c}</td>
-                      {gwsWithData.map((h, gwIdx) => {
-                        const standing = h.standings.find(s => s.competitor === c);
-                        const rank = standing ? standing.rank : "—";
-                        const points = standing ? standing.points : 0;
-                        
-                        let prevRank = null;
-                        if(gwIdx > 0){
-                          const prevStanding = gwsWithData[gwIdx - 1].standings.find(s => s.competitor === c);
-                          prevRank = prevStanding ? prevStanding.rank : null;
-                        }
-                        
-                        let changeIndicator = "";
-                        let changeClass = "";
-                        if(prevRank !== null && rank !== "—"){
-                          const change = prevRank - rank;
-                          if(change > 0){
-                            changeIndicator = ` ↑${change}`;
-                            changeClass = "rank-up";
-                          } else if(change < 0){
-                            changeIndicator = ` ↓${Math.abs(change)}`;
-                            changeClass = "rank-down";
-                          } else {
-                            changeIndicator = " ─";
-                            changeClass = "rank-same";
-                          }
-                        }
-                        
-                        let className = "center";
-                        if(rank === 1) className += " rank-1";
-                        else if(rank === 2) className += " rank-2";
-                        else if(rank === 3) className += " rank-3";
-                        
-                        return (
-                          <td key={h.gw} className={className} title={`${points} pts`}>
-                            <div>
-                              <span style={{fontWeight: rank <= 3 ? 800 : 600}}>{rank}</span>
-                              {changeIndicator && (
-                                <span className={changeClass} style={{fontSize: 10, marginLeft: 2}}>
-                                  {changeIndicator}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
+          {viewMode === 'graph' ? (
+            <>
+              <div className="muted" style={{marginBottom:10}}>
+                Line graph showing position changes over time. Lower is better (1st place at top).
+              </div>
+              <div className="chart-container">
+                <canvas ref={chartRef}></canvas>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="muted" style={{marginBottom:10}}>
+                Shows leaderboard position (rank) for each competitor after each gameweek. 
+                Colors highlight top 3 positions.
+              </div>
+
+              <div className="grid">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="sticky">Competitor</th>
+                      {gwsWithData.map(h => (
+                        <th key={h.gw} className="center">GW{h.gw}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {competitors.map(c => {
+                      return (
+                        <tr key={c}>
+                          <td className="sticky">{c}</td>
+                          {gwsWithData.map((h, gwIdx) => {
+                            const standing = h.standings.find(s => s.competitor === c);
+                            const rank = standing ? standing.rank : "—";
+                            const points = standing ? standing.points : 0;
+                            
+                            let prevRank = null;
+                            if(gwIdx > 0){
+                              const prevStanding = gwsWithData[gwIdx - 1].standings.find(s => s.competitor === c);
+                              prevRank = prevStanding ? prevStanding.rank : null;
+                            }
+                            
+                            let changeIndicator = "";
+                            let changeClass = "";
+                            if(prevRank !== null && rank !== "—"){
+                              const change = prevRank - rank;
+                              if(change > 0){
+                                changeIndicator = ` ↑${change}`;
+                                changeClass = "rank-up";
+                              } else if(change < 0){
+                                changeIndicator = ` ↓${Math.abs(change)}`;
+                                changeClass = "rank-down";
+                              } else {
+                                changeIndicator = " ─";
+                                changeClass = "rank-same";
+                              }
+                            }
+                            
+                            let className = "center";
+                            if(rank === 1) className += " rank-1";
+                            else if(rank === 2) className += " rank-2";
+                            else if(rank === 3) className += " rank-3";
+                            
+                            return (
+                              <td key={h.gw} className={className} title={`${points} pts`}>
+                                <div>
+                                  <span style={{fontWeight: rank <= 3 ? 800 : 600}}>{rank}</span>
+                                  {changeIndicator && (
+                                    <span className={changeClass} style={{fontSize: 10, marginLeft: 2}}>
+                                      {changeIndicator}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          <div className="muted" style={{marginTop:10}}>
-            <div>🥇 Gold = 1st place, 🥈 Silver = 2nd place, 🥉 Bronze = 3rd place</div>
-            <div>Hover over a rank to see the points total at that gameweek</div>
-            <div>↑ = moved up, ↓ = moved down, ─ = same position</div>
-          </div>
+              <div className="muted" style={{marginTop:10}}>
+                <div>🥇 Gold = 1st place, 🥈 Silver = 2nd place, 🥉 Bronze = 3rd place</div>
+                <div>Hover over a rank to see the points total at that gameweek</div>
+                <div>↑ = moved up, ↓ = moved down, ─ = same position</div>
+              </div>
+            </>
+          )}
         </div>
       );
     }
